@@ -3,18 +3,15 @@ package com.example.weconnect.activities;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+
 import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.LinearLayoutManager;
-
-import com.example.weconnect.R;
-import com.example.weconnect.adapters.PostAdapter;
 import com.example.weconnect.models.Post;
+import com.example.weconnect.adapters.PostAdapter;
+import com.example.weconnect.R;
 
 import java.util.ArrayList;
 import java.util.List;
