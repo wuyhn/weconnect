@@ -1,4 +1,5 @@
 <resources>
+    <string name="app_name">WeConnect</string>
     <string name="title_new_post">Bài viết mới</string>
     <string name="hint_post">Có gì mới?</string>
     <string name="btn_post">Đăng</string>

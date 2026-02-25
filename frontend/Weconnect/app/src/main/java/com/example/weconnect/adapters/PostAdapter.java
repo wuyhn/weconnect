@@ -69,10 +69,23 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         }
 
         // View Members Button
-        String memberText = post.getMemberCount() + "/" + post.getMaxMembers();
+        String memberText = "👥 " + post.getMemberCount() + "/" + post.getMaxMembers();
         holder.btnViewMembers.setText(memberText);
-        holder.btnViewMembers.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_see1, 0, 0, 0);
-        holder.btnViewMembers.setCompoundDrawablePadding(12);
+        holder.btnViewMembers.setTextColor(0xFF000000); // Màu đen
+        holder.btnViewMembers.setOnClickListener(v ->
+                Toast.makeText(context, "Thành viên: " + memberText, Toast.LENGTH_SHORT).show()
+        );
+
+        android.util.Log.d("PostAdapter", "Position: " + position);
+        android.util.Log.d("PostAdapter", "MemberCount: " + post.getMemberCount());
+        android.util.Log.d("PostAdapter", "MaxMembers: " + post.getMaxMembers());
+        android.util.Log.d("PostAdapter", "Member text: " + memberText);
+
+        // Set text
+        holder.btnViewMembers.setText(memberText);
+        holder.btnViewMembers.setTextColor(0xFF000000); // Đen
+
+        // Click listener
         holder.btnViewMembers.setOnClickListener(v ->
                 Toast.makeText(context, "Thành viên: " + memberText, Toast.LENGTH_SHORT).show()
         );
