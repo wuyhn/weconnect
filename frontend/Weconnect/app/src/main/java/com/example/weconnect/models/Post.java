@@ -5,6 +5,7 @@ public class Post {
     private String username;
     private String timeAgo;
     private String content;
+    private String interestTag;
     private int avatarResId;
     private int imageResId;
     private int memberCount;
@@ -14,13 +15,14 @@ public class Post {
     private boolean joined;
 
     // Constructor
-    public Post(String id, String username, String timeAgo, String content,
+    public Post(String id, String username, String timeAgo, String content,String interestTag,
                 int avatarResId, int imageResId, int memberCount, int likesCount,
                 int commentsCount, int maxMembers, boolean joined) {
         this.id = id;
         this.username = username;
         this.timeAgo = timeAgo;
         this.content = content;
+        this.interestTag = interestTag;
         this.avatarResId = avatarResId;
         this.imageResId = imageResId;
         this.memberCount = memberCount;
@@ -35,6 +37,7 @@ public class Post {
     public String getUsername() { return username; }
     public String getTimeAgo() { return timeAgo; }
     public String getContent() { return content; }
+    public String getInterestTag() { return interestTag; }
     public int getAvatarResId() { return avatarResId; }
     public int getImageResId() { return imageResId; }
     public int getMemberCount() { return memberCount; }

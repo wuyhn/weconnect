@@ -91,6 +91,22 @@
             android:lineSpacingExtra="4dp"
             tools:text="Nội dung bài đăng sẽ hiển thị ở đây..." />
 
+        <TextView
+            android:id="@+id/post_item_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_tag_shadow"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:textColor="@color/primary_pink"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:elevation="2dp"
+            android:visibility="gone"
+            tools:visibility="visible"
+            tools:text="⚽ Đá bóng" />
+
         <!-- Post Image -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"

@@ -2,7 +2,10 @@ package com.example.weconnect.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -11,6 +14,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.weconnect.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 
 public class CreatePostActivity extends AppCompatActivity {
 
@@ -18,6 +24,7 @@ public class CreatePostActivity extends AppCompatActivity {
     private TextView tvUserName;
     private ImageView ivClose, ivAddImage, ivAddLocation, ivTagInterest;
     private MaterialButton btnPost;
+    private String selectedTag = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,6 +57,7 @@ public class CreatePostActivity extends AppCompatActivity {
                 result.putExtra("post_content", content);
                 result.putExtra("post_username", tvUserName.getText().toString());
                 result.putExtra("post_time", "Vừa xong");
+                result.putExtra("post_tag", selectedTag);
                 setResult(RESULT_OK, result);
                 finish();
             }
@@ -58,7 +66,7 @@ public class CreatePostActivity extends AppCompatActivity {
         // 4. Các icon phụ
         ivAddImage.setOnClickListener(v -> Toast.makeText(this, "Thêm ảnh", Toast.LENGTH_SHORT).show());
         ivAddLocation.setOnClickListener(v -> Toast.makeText(this, "Vị trí", Toast.LENGTH_SHORT).show());
-        ivTagInterest.setOnClickListener(v -> Toast.makeText(this, "Sở thích", Toast.LENGTH_SHORT).show());
+        ivTagInterest.setOnClickListener(v -> showTagDialog());
 
         // 5. Xử lý nút back hệ thống
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -80,5 +88,68 @@ public class CreatePostActivity extends AppCompatActivity {
         } else {
             finish();
         }
+    }
+
+    private void showTagDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.layout_tag_interest, null);
+        dialog.setContentView(view);
+
+        // 1. Ép hiển thị Full màn hình
+        dialog.setOnShowListener(dialogInterface -> {
+            BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
+            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior behavior =
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+                bottomSheet.getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
+            }
+        });
+
+        // 2. Ánh xạ các nhóm Chip
+        ChipGroup groupSport = view.findViewById(R.id.groupSport);
+        ChipGroup groupStudy = view.findViewById(R.id.groupStudy);
+        ChipGroup groupChill = view.findViewById(R.id.groupChill);
+        MaterialButton btnOk = view.findViewById(R.id.btnOkInterest);
+
+        ChipGroup[] allGroups = {groupSport, groupStudy, groupChill};
+
+        // 3. Logic: Chỉ được chọn 1 Tag duy nhất trên cả 3 nhóm
+        for (ChipGroup currentGroup : allGroups) {
+            currentGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (!checkedIds.isEmpty()) {
+                    // Nếu nhóm này có cái được chọn, thì bỏ chọn tất cả các nhóm còn lại
+                    for (ChipGroup otherGroup : allGroups) {
+                        if (otherGroup != group) {
+                            otherGroup.clearCheck();
+                        }
+                    }
+                }
+            });
+        }
+
+        // 4. Bấm OK để xác nhận
+        btnOk.setOnClickListener(v -> {
+            String tagChosen = "";
+            for (ChipGroup group : allGroups) {
+                int checkedId = group.getCheckedChipId();
+                if (checkedId != View.NO_ID) {
+                    Chip chip = group.findViewById(checkedId);
+                    tagChosen = chip.getText().toString();
+                    break;
+                }
+            }
+
+            if (!tagChosen.isEmpty()) {
+                selectedTag = tagChosen; // Lưu vào biến toàn cục của Activity
+                Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            } else {
+                Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        dialog.show();
     }
 }

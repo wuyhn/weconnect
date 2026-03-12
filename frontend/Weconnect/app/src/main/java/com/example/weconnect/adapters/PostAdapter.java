@@ -51,6 +51,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         } else {
             holder.ivPostImage.setVisibility(View.GONE);
         }
+        if (post.getInterestTag() != null && !post.getInterestTag().isEmpty()) {
+            holder.tvTag.setVisibility(View.VISIBLE);
+            holder.tvTag.setText(post.getInterestTag());
+        } else {
+            holder.tvTag.setVisibility(View.GONE);
+        }
 
         // Join Group Button
         if (post.isJoined()) {
@@ -100,6 +106,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         ImageView ivAvatar, ivPostImage;
         TextView tvUsername, tvTime, tvContent;
         TextView btnJoinGroup, btnViewMembers;
+        TextView tvTag;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -110,6 +117,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             ivPostImage = itemView.findViewById(R.id.post_item_image);
             btnJoinGroup = itemView.findViewById(R.id.btnJoinGroup);
             btnViewMembers = itemView.findViewById(R.id.btnViewMembers);
+            tvTag = itemView.findViewById(R.id.post_item_tag);
         }
     }
 }

@@ -62,32 +62,17 @@ public class MainActivity extends AppCompatActivity {
                         String content = data.getStringExtra("post_content");
                         String username = data.getStringExtra("post_username");
                         String time = data.getStringExtra("post_time");
+                        String tag = data.getStringExtra("post_tag"); // ✅ NHẬN TAG
 
-                        // ✅ Tạo bài viết mới và thêm vào đầu danh sách
                         Post newPost = new Post(
-                                String.valueOf(System.currentTimeMillis()), // ID unique
-                                username,
-                                time,
-                                content,
-                                R.drawable.ic_user_placeholder,
-                                0, // imageResId
-                                0, // memberCount
-                                0, // likesCount
-                                0, // commentsCount
-                                0, // maxMembers
-                                false // joined
+                                String.valueOf(System.currentTimeMillis()),
+                                username, time, content,
+                                tag, // ✅ TRUYỀN TAG VÀO
+                                R.drawable.ic_user_placeholder, 0, 0, 0, 0, 0, false
                         );
-
-                        // Thêm vào đầu danh sách
                         postList.add(0, newPost);
-
-                        // Cập nhật RecyclerView
                         postAdapter.notifyItemInserted(0);
-
-                        // Scroll lên đầu để thấy bài viết mới
                         rvPosts.smoothScrollToPosition(0);
-
-                        Toast.makeText(this, "✅ Bài viết đã được thêm!", Toast.LENGTH_SHORT).show();
                     }
                 }
         );
@@ -156,10 +141,15 @@ public class MainActivity extends AppCompatActivity {
 
         // Create Dummy Data
         postList = new ArrayList<>();
-        postList.add(new Post("1", "Quỳnh Nguyễn", "15 phút trước", "Hôm nay trời đẹp quá! 🌞 Đi cafe không mọi người ơi?", R.drawable.ic_user_placeholder, 0, 120, 15, 2, 20, false));
-        postList.add(new Post("2", "Minh Hoàng", "1 giờ trước", "Vừa hoàn thành dự án mới, cảm thấy thật tuyệt vời! 🚀 #CodingLife #Android", R.drawable.ic_user_placeholder, R.drawable.ic_launcher_background, 450, 89, 45, 50, true));
-        postList.add(new Post("3", "Lan Anh", "3 giờ trước", "Có ai biết quán ăn ngon ở quận 1 không ạ? Cần tìm gấp cho tối nay! 🍝", R.drawable.ic_user_placeholder, 0, 56, 42, 3, 10, false));
-        postList.add(new Post("4", "Community Admin", "5 giờ trước", "Chào mừng các bạn đến với WeConnect! Hãy chia sẻ những khoảnh khắc đáng nhớ nhé. ❤️", R.drawable.ic_user_placeholder, 0, 1024, 300, 1500, 5000, true));
+
+        // ✅ Lưu ý: Phải truyền đủ 12 tham số (đã thêm biến tag ở vị trí số 5)
+        postList.add(new Post("1", "Quỳnh Nguyễn", "15 phút trước", "Đi cafe không?", "☕ Đi Cafe", R.drawable.ic_user_placeholder, 0, 120, 15, 2, 20, false));
+
+        postList.add(new Post("2", "Minh Hoàng", "1 giờ trước", "Vừa hoàn thành dự án mới! 🚀", "💻 Đồ họa / Code", R.drawable.ic_user_placeholder, R.drawable.ic_launcher_background, 450, 89, 45, 50, true));
+
+        postList.add(new Post("3", "Lan Anh", "3 giờ trước", "Cần tìm quán ăn ngon quận 1! 🍝", "", R.drawable.ic_user_placeholder, 0, 56, 42, 3, 10, false));
+
+        postList.add(new Post("4", "Community Admin", "5 giờ trước", "Chào mừng các bạn đến với WeConnect!", "📢 Thông báo", R.drawable.ic_user_placeholder, 0, 1024, 300, 1500, 5000, true));
 
         // Set Adapter
         postAdapter = new PostAdapter(this, postList);

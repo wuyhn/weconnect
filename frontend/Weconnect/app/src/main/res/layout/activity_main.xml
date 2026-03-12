@@ -6,23 +6,23 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/soft_beige">
+    android:background="@color/soft_beige"
+    android:fitsSystemWindows="true">
 
-    <!-- Modern Clean Header -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/headerBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingHorizontal="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
             android:id="@+id/ivAdd"
-            android:layout_width="32dp"
+            android:layout_width="48dp"
             android:layout_height="32dp"
-            android:contentDescription="Add"
+            android:contentDescription="Nút thêm bài viết"
             android:src="@drawable/ic_add"
             app:tint="@color/text_primary"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -46,26 +46,45 @@
             android:id="@+id/ivSearch"
             android:layout_width="28dp"
             android:layout_height="28dp"
-            android:contentDescription="Search"
+            android:contentDescription="Nút tìm kiếm"
             android:src="@drawable/ic_search"
             app:tint="@color/text_primary"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Status Header -->
-    <include
-        android:id="@+id/statusHeader"
-        layout="@layout/item_status_header"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/nestedContent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
         app:layout_constraintTop_toBottomOf="@id/headerBar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent">
 
-    <!-- Floating Navigation Bar (ĐẶT TRƯỚC RecyclerView) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <include
+                android:id="@+id/statusHeader"
+                layout="@layout/item_status_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvPosts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:paddingTop="8dp"
+                android:paddingBottom="120dp"
+                tools:listitem="@layout/item_post" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/footerNavigation"
         android:layout_width="match_parent"
@@ -95,9 +114,8 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:contentDescription="Home"
-                android:focusable="true">
-
+                android:focusable="true"
+                android:contentDescription="Trang chủ">
                 <ImageView
                     android:layout_width="26dp"
                     android:layout_height="26dp"
@@ -113,9 +131,8 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:contentDescription="Messages"
-                android:focusable="true">
-
+                android:focusable="true"
+                android:contentDescription="Tin nhắn">
                 <ImageView
                     android:layout_width="26dp"
                     android:layout_height="26dp"
@@ -131,9 +148,8 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:contentDescription="Notifications"
-                android:focusable="true">
-
+                android:focusable="true"
+                android:contentDescription="Thông báo">
                 <ImageView
                     android:layout_width="26dp"
                     android:layout_height="26dp"
@@ -149,9 +165,8 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:contentDescription="Profile"
-                android:focusable="true">
-
+                android:focusable="true"
+                android:contentDescription="Hồ sơ">
                 <ImageView
                     android:layout_width="26dp"
                     android:layout_height="26dp"
@@ -159,22 +174,7 @@
                     android:src="@drawable/ic_profile"
                     app:tint="@color/text_secondary" />
             </FrameLayout>
-
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
-
-    <!-- Main Content List (DƯỚI Navigation Bar) -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvPosts"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:paddingTop="8dp"
-        android:paddingBottom="16dp"
-        android:overScrollMode="never"
-        app:layout_constraintTop_toBottomOf="@id/statusHeader"
-        app:layout_constraintBottom_toTopOf="@id/footerNavigation"
-        tools:listitem="@layout/item_post"
-        tools:itemCount="3" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
