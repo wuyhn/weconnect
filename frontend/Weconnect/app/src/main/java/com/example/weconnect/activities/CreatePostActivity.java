@@ -17,6 +17,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.card.MaterialCardView;
 
 public class CreatePostActivity extends AppCompatActivity {
 
@@ -25,6 +26,8 @@ public class CreatePostActivity extends AppCompatActivity {
     private ImageView ivClose, ivAddImage, ivAddLocation, ivTagInterest;
     private MaterialButton btnPost;
     private String selectedTag = "";
+    private MaterialCardView cardSelectedTag;
+    private TextView tvSelectedTag;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +42,8 @@ public class CreatePostActivity extends AppCompatActivity {
         ivAddImage = findViewById(R.id.ivAddImage);
         ivAddLocation = findViewById(R.id.ivAddLocation);
         ivTagInterest = findViewById(R.id.ivTagInterest);
+        cardSelectedTag = findViewById(R.id.cardSelectedTag);
+        tvSelectedTag = findViewById(R.id.tvSelectedTag);
 
         // 2. Click cho nút Close - Cực kỳ quan trọng
 //        ivClose.setOnClickListener(v -> handleExit());
@@ -141,8 +146,20 @@ public class CreatePostActivity extends AppCompatActivity {
                 }
             }
 
+//            if (!tagChosen.isEmpty()) {
+//                selectedTag = tagChosen; // Lưu vào biến toàn cục của Activity
+//                Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
+//                dialog.dismiss();
+//            } else {
+//                Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
+//            }
+
             if (!tagChosen.isEmpty()) {
-                selectedTag = tagChosen; // Lưu vào biến toàn cục của Activity
+                selectedTag = tagChosen;
+
+                tvSelectedTag.setText(selectedTag);
+                cardSelectedTag.setVisibility(View.VISIBLE);
+
                 Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
             } else {

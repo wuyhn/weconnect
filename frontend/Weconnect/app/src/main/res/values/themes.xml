@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<resources>
 
-    <style name="Theme.Weconnect" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-    </style>
+    <style name="Theme.Weconnect" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
 
     <style name="TagCategoryHeader">
         <item name="android:layout_width">match_parent</item>
@@ -24,6 +22,7 @@
         <item name="android:textColor">@color/chip_text_state</item>
         <item name="checkedIconVisible">true</item>
         <item name="checkedIcon">@drawable/ic_check</item>
+        <item name="checkedIconTint">@android:color/white</item>
         <item name="chipCornerRadius">16dp</item>
         <item name="chipStrokeWidth">0dp</item>
     </style>
