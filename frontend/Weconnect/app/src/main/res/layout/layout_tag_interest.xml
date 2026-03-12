@@ -50,7 +50,8 @@
                 android:id="@+id/groupSport"
                 style="@style/CustomChipGroupStyle"
                 android:clipToPadding="false"
-                android:padding="4dp"> <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="⚽ Đá bóng" />
+                android:padding="8dp">
+                <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="⚽ Đá bóng" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="🏸 Cầu lông" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="🏃 Chạy bộ" />
             </com.google.android.material.chip.ChipGroup>
@@ -58,9 +59,7 @@
             <TextView style="@style/TagCategoryHeader" android:layout_marginTop="20dp" android:text="Học tập &amp; Công việc" />
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/groupStudy"
-                style="@style/CustomChipGroupStyle"
-                android:clipToPadding="false"
-                android:padding="4dp">
+                style="@style/CustomChipGroupStyle">
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="📖 Học bài" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="🇬🇧 Học Tiếng Anh" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="💻 Đồ họa / Code" />
@@ -69,9 +68,7 @@
             <TextView style="@style/TagCategoryHeader" android:layout_marginTop="20dp" android:text="Thư giãn &amp; Giải trí" />
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/groupChill"
-                style="@style/CustomChipGroupStyle"
-                android:clipToPadding="false"
-                android:padding="4dp">
+                style="@style/CustomChipGroupStyle">
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="☕ Đi Cafe" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="🍿 Xem phim" />
                 <com.google.android.material.chip.Chip style="@style/CustomChipChoice" android:text="🎮 Chơi Game" />
@@ -86,14 +83,10 @@
         android:layout_height="54dp"
         android:minWidth="160dp"
         android:layout_marginBottom="32dp"
-        android:paddingHorizontal="32dp"
         android:text="Xác nhận"
-        android:textAllCaps="false"
-        android:textSize="17sp"
-        android:textStyle="bold"
         app:cornerRadius="27dp"
         app:backgroundTint="@color/primary_pink"
-        app:elevation="4dp" app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
