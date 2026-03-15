@@ -63,12 +63,21 @@ public class MainActivity extends AppCompatActivity {
                         String username = data.getStringExtra("post_username");
                         String time = data.getStringExtra("post_time");
                         String tag = data.getStringExtra("post_tag"); // ✅ NHẬN TAG
+                        int maxMembers = data.getIntExtra("post_max_members", 0);
 
                         Post newPost = new Post(
                                 String.valueOf(System.currentTimeMillis()),
-                                username, time, content,
-                                tag, // ✅ TRUYỀN TAG VÀO
-                                R.drawable.ic_user_placeholder, 0, 0, 0, 0, 0, false
+                                username,
+                                time,
+                                content,
+                                tag,
+                                R.drawable.ic_user_placeholder,
+                                0,
+                                0,
+                                0,
+                                0,
+                                maxMembers,
+                                false
                         );
                         postList.add(0, newPost);
                         postAdapter.notifyItemInserted(0);

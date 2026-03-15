@@ -28,6 +28,10 @@ public class CreatePostActivity extends AppCompatActivity {
     private String selectedTag = "";
     private MaterialCardView cardSelectedTag;
     private TextView tvSelectedTag;
+    private ImageView ivParticipants;
+    private MaterialCardView cardParticipantLimit;
+    private TextView tvParticipantLimit;
+    private int participantLimit = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +67,7 @@ public class CreatePostActivity extends AppCompatActivity {
                 result.putExtra("post_username", tvUserName.getText().toString());
                 result.putExtra("post_time", "Vừa xong");
                 result.putExtra("post_tag", selectedTag);
+                result.putExtra("post_max_members", participantLimit);
                 setResult(RESULT_OK, result);
                 finish();
             }
@@ -72,6 +77,11 @@ public class CreatePostActivity extends AppCompatActivity {
         ivAddImage.setOnClickListener(v -> Toast.makeText(this, "Thêm ảnh", Toast.LENGTH_SHORT).show());
         ivAddLocation.setOnClickListener(v -> Toast.makeText(this, "Vị trí", Toast.LENGTH_SHORT).show());
         ivTagInterest.setOnClickListener(v -> showTagDialog());
+        ivParticipants = findViewById(R.id.ivParticipants);
+        cardParticipantLimit = findViewById(R.id.cardParticipantLimit);
+        tvParticipantLimit = findViewById(R.id.tvParticipantLimit);
+
+        ivParticipants.setOnClickListener(v -> showParticipantDialog());
 
         // 5. Xử lý nút back hệ thống
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -80,6 +90,8 @@ public class CreatePostActivity extends AppCompatActivity {
                 handleExit();
             }
         });
+
+
     }
 
     private void handleExit() {
@@ -165,6 +177,63 @@ public class CreatePostActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
             }
+        });
+
+        dialog.show();
+    }
+
+    private void showParticipantDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.layout_participant_limit, null);
+        dialog.setContentView(view);
+
+        dialog.setOnShowListener(dialogInterface -> {
+            BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
+            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior behavior =
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+                bottomSheet.getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
+            }
+        });
+
+        ImageView ivCloseParticipant = view.findViewById(R.id.ivCloseParticipant);
+        com.google.android.material.textfield.TextInputEditText etParticipantLimit =
+                view.findViewById(R.id.etParticipantLimit);
+        MaterialButton btnOkParticipant = view.findViewById(R.id.btnOkParticipant);
+
+        Chip chipParticipant5 = view.findViewById(R.id.chipParticipant5);
+        Chip chipParticipant10 = view.findViewById(R.id.chipParticipant10);
+        Chip chipParticipant20 = view.findViewById(R.id.chipParticipant20);
+        Chip chipParticipant50 = view.findViewById(R.id.chipParticipant50);
+
+        ivCloseParticipant.setOnClickListener(v -> dialog.dismiss());
+
+        if (participantLimit > 0) {
+            etParticipantLimit.setText(String.valueOf(participantLimit));
+        }
+
+        chipParticipant5.setOnClickListener(v -> etParticipantLimit.setText("5"));
+        chipParticipant10.setOnClickListener(v -> etParticipantLimit.setText("10"));
+        chipParticipant20.setOnClickListener(v -> etParticipantLimit.setText("20"));
+        chipParticipant50.setOnClickListener(v -> etParticipantLimit.setText("50"));
+
+        btnOkParticipant.setOnClickListener(v -> {
+            String input = etParticipantLimit.getText() != null
+                    ? etParticipantLimit.getText().toString().trim()
+                    : "";
+
+            if (input.length() == 0) {
+                Toast.makeText(this, "Bạn chưa nhập giới hạn người tham gia!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            participantLimit = Integer.parseInt(input);
+            tvParticipantLimit.setText("👥 Giới hạn: " + participantLimit + " người");
+            cardParticipantLimit.setVisibility(View.VISIBLE);
+
+            dialog.dismiss();
         });
 
         dialog.show();

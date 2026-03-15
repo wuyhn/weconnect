@@ -1,6 +1,7 @@
 package com.example.weconnect.adapters;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
+import com.example.weconnect.activities.ParticipantsActivity;
 import com.example.weconnect.models.Post;
 
 import java.util.List;
@@ -41,16 +43,15 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.tvTime.setText(post.getTimeAgo());
         holder.tvContent.setText(post.getContent());
 
-        // Avatar
         holder.ivAvatar.setImageResource(post.getAvatarResId());
 
-        // Image content
         if (post.getImageResId() != 0) {
             holder.ivPostImage.setVisibility(View.VISIBLE);
             holder.ivPostImage.setImageResource(post.getImageResId());
         } else {
             holder.ivPostImage.setVisibility(View.GONE);
         }
+
         if (post.getInterestTag() != null && !post.getInterestTag().isEmpty()) {
             holder.tvTag.setVisibility(View.VISIBLE);
             holder.tvTag.setText(post.getInterestTag());
@@ -58,7 +59,6 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.tvTag.setVisibility(View.GONE);
         }
 
-        // Join Group Button
         if (post.isJoined()) {
             holder.btnJoinGroup.setText("Đã tham gia");
             holder.btnJoinGroup.setEnabled(false);
@@ -74,27 +74,17 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             });
         }
 
-        // View Members Button
         String memberText = "👥 " + post.getMemberCount() + "/" + post.getMaxMembers();
         holder.btnViewMembers.setText(memberText);
-        holder.btnViewMembers.setTextColor(0xFF000000); // Màu đen
-        holder.btnViewMembers.setOnClickListener(v ->
-                Toast.makeText(context, "Thành viên: " + memberText, Toast.LENGTH_SHORT).show()
-        );
+        holder.btnViewMembers.setTextColor(0xFF000000);
 
-        android.util.Log.d("PostAdapter", "Position: " + position);
-        android.util.Log.d("PostAdapter", "MemberCount: " + post.getMemberCount());
-        android.util.Log.d("PostAdapter", "MaxMembers: " + post.getMaxMembers());
-        android.util.Log.d("PostAdapter", "Member text: " + memberText);
-
-        // Set text
-        holder.btnViewMembers.setText(memberText);
-        holder.btnViewMembers.setTextColor(0xFF000000); // Đen
-
-        // Click listener
-        holder.btnViewMembers.setOnClickListener(v ->
-                Toast.makeText(context, "Thành viên: " + memberText, Toast.LENGTH_SHORT).show()
-        );
+        holder.btnViewMembers.setOnClickListener(v -> {
+            Intent intent = new Intent(context, ParticipantsActivity.class);
+            intent.putExtra("post_id", post.getId());
+            intent.putExtra("member_count", post.getMemberCount());
+            intent.putExtra("max_members", post.getMaxMembers());
+            context.startActivity(intent);
+        });
     }
 
     @Override
