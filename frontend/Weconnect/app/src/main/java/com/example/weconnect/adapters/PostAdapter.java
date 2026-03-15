@@ -59,6 +59,13 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.tvTag.setVisibility(View.GONE);
         }
 
+        if (post.getLocation() != null && !post.getLocation().isEmpty()) {
+            holder.tvLocation.setVisibility(View.VISIBLE);
+            holder.tvLocation.setText("📍 " + post.getLocation());
+        } else {
+            holder.tvLocation.setVisibility(View.GONE);
+        }
+
         if (post.isJoined()) {
             holder.btnJoinGroup.setText("Đã tham gia");
             holder.btnJoinGroup.setEnabled(false);
@@ -96,7 +103,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         ImageView ivAvatar, ivPostImage;
         TextView tvUsername, tvTime, tvContent;
         TextView btnJoinGroup, btnViewMembers;
-        TextView tvTag;
+        TextView tvTag, tvLocation;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -108,6 +115,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             btnJoinGroup = itemView.findViewById(R.id.btnJoinGroup);
             btnViewMembers = itemView.findViewById(R.id.btnViewMembers);
             tvTag = itemView.findViewById(R.id.post_item_tag);
+            tvLocation = itemView.findViewById(R.id.post_item_location);
         }
     }
 }

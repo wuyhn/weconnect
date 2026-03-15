@@ -107,6 +107,18 @@
             tools:visibility="visible"
             tools:text="⚽ Đá bóng" />
 
+        <TextView
+            android:id="@+id/post_item_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="📍 Phường Phú Lương, Hà Đông, Hà Nội"
+            tools:visibility="visible" />
+
         <!-- Post Image -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"

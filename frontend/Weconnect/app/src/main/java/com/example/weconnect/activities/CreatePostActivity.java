@@ -32,6 +32,9 @@ public class CreatePostActivity extends AppCompatActivity {
     private MaterialCardView cardParticipantLimit;
     private TextView tvParticipantLimit;
     private int participantLimit = 0;
+    private MaterialCardView cardSelectedLocation;
+    private TextView tvSelectedLocation;
+    private String selectedLocation = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +51,8 @@ public class CreatePostActivity extends AppCompatActivity {
         ivTagInterest = findViewById(R.id.ivTagInterest);
         cardSelectedTag = findViewById(R.id.cardSelectedTag);
         tvSelectedTag = findViewById(R.id.tvSelectedTag);
+        cardSelectedLocation = findViewById(R.id.cardSelectedLocation);
+        tvSelectedLocation = findViewById(R.id.tvSelectedLocation);
 
         // 2. Click cho nút Close - Cực kỳ quan trọng
 //        ivClose.setOnClickListener(v -> handleExit());
@@ -68,6 +73,7 @@ public class CreatePostActivity extends AppCompatActivity {
                 result.putExtra("post_time", "Vừa xong");
                 result.putExtra("post_tag", selectedTag);
                 result.putExtra("post_max_members", participantLimit);
+                result.putExtra("post_location", selectedLocation);
                 setResult(RESULT_OK, result);
                 finish();
             }
@@ -75,7 +81,7 @@ public class CreatePostActivity extends AppCompatActivity {
 
         // 4. Các icon phụ
         ivAddImage.setOnClickListener(v -> Toast.makeText(this, "Thêm ảnh", Toast.LENGTH_SHORT).show());
-        ivAddLocation.setOnClickListener(v -> Toast.makeText(this, "Vị trí", Toast.LENGTH_SHORT).show());
+        ivAddLocation.setOnClickListener(v -> showLocationDialog());
         ivTagInterest.setOnClickListener(v -> showTagDialog());
         ivParticipants = findViewById(R.id.ivParticipants);
         cardParticipantLimit = findViewById(R.id.cardParticipantLimit);
@@ -238,4 +244,152 @@ public class CreatePostActivity extends AppCompatActivity {
 
         dialog.show();
     }
+
+    private void showLocationDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.layout_location_picker, null);
+        dialog.setContentView(view);
+
+        dialog.setOnShowListener(dialogInterface -> {
+            BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
+            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior behavior =
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+                bottomSheet.getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
+            }
+        });
+
+        ImageView ivCloseLocation = view.findViewById(R.id.ivCloseLocation);
+        com.google.android.material.textfield.MaterialAutoCompleteTextView actWard = view.findViewById(R.id.actWard);
+        com.google.android.material.textfield.MaterialAutoCompleteTextView actDistrict = view.findViewById(R.id.actDistrict);
+        com.google.android.material.textfield.MaterialAutoCompleteTextView actCity = view.findViewById(R.id.actCity);
+        TextView tvLocationPreview = view.findViewById(R.id.tvLocationPreview);
+        MaterialButton btnOkLocation = view.findViewById(R.id.btnOkLocation);
+
+        Chip chipHaDong = view.findViewById(R.id.chipHaDong);
+        Chip chipCauGiay = view.findViewById(R.id.chipCauGiay);
+        Chip chipThuDuc = view.findViewById(R.id.chipThuDuc);
+        Chip chipHaiChau = view.findViewById(R.id.chipHaiChau);
+
+        ivCloseLocation.setOnClickListener(v -> dialog.dismiss());
+
+        String[] wards = {"Phường Phú Lương", "Phường Văn Quán", "Phường Mộ Lao", "Phường Yên Nghĩa"};
+        String[] districts = {"Hà Đông", "Cầu Giấy", "Thủ Đức", "Hải Châu"};
+        String[] cities = {"Hà Nội", "TP.HCM", "Đà Nẵng"};
+
+        android.widget.ArrayAdapter<String> wardAdapter =
+                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, wards);
+        android.widget.ArrayAdapter<String> districtAdapter =
+                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, districts);
+        android.widget.ArrayAdapter<String> cityAdapter =
+                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, cities);
+
+        actWard.setAdapter(wardAdapter);
+        actDistrict.setAdapter(districtAdapter);
+        actCity.setAdapter(cityAdapter);
+
+        Runnable updatePreview = () -> {
+            String ward = actWard.getText() != null ? actWard.getText().toString().trim() : "";
+            String district = actDistrict.getText() != null ? actDistrict.getText().toString().trim() : "";
+            String city = actCity.getText() != null ? actCity.getText().toString().trim() : "";
+
+            StringBuilder builder = new StringBuilder("📍 ");
+            boolean hasValue = false;
+
+            if (ward.length() > 0) {
+                builder.append(ward);
+                hasValue = true;
+            }
+            if (district.length() > 0) {
+                if (hasValue) builder.append(", ");
+                builder.append(district);
+                hasValue = true;
+            }
+            if (city.length() > 0) {
+                if (hasValue) builder.append(", ");
+                builder.append(city);
+            }
+
+            if (!hasValue && city.length() == 0) {
+                tvLocationPreview.setText("📍 Chưa chọn địa điểm");
+            } else {
+                tvLocationPreview.setText(builder.toString());
+            }
+        };
+
+        actWard.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
+        actDistrict.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
+        actCity.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
+
+        chipHaDong.setOnClickListener(v -> {
+            actWard.setText("Phường Phú Lương", false);
+            actDistrict.setText("Hà Đông", false);
+            actCity.setText("Hà Nội", false);
+            updatePreview.run();
+        });
+
+        chipCauGiay.setOnClickListener(v -> {
+            actWard.setText("Phường Văn Quán", false);
+            actDistrict.setText("Cầu Giấy", false);
+            actCity.setText("Hà Nội", false);
+            updatePreview.run();
+        });
+
+        chipThuDuc.setOnClickListener(v -> {
+            actWard.setText("Phường Mộ Lao", false);
+            actDistrict.setText("Thủ Đức", false);
+            actCity.setText("TP.HCM", false);
+            updatePreview.run();
+        });
+
+        chipHaiChau.setOnClickListener(v -> {
+            actWard.setText("Phường Yên Nghĩa", false);
+            actDistrict.setText("Hải Châu", false);
+            actCity.setText("Đà Nẵng", false);
+            updatePreview.run();
+        });
+
+        if (selectedLocation != null && selectedLocation.length() > 0) {
+            tvLocationPreview.setText("📍 " + selectedLocation);
+        }
+
+        btnOkLocation.setOnClickListener(v -> {
+            String ward = actWard.getText() != null ? actWard.getText().toString().trim() : "";
+            String district = actDistrict.getText() != null ? actDistrict.getText().toString().trim() : "";
+            String city = actCity.getText() != null ? actCity.getText().toString().trim() : "";
+
+            if (ward.length() == 0 && district.length() == 0 && city.length() == 0) {
+                Toast.makeText(this, "Bạn chưa chọn địa điểm!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            StringBuilder builder = new StringBuilder();
+            boolean hasValue = false;
+
+            if (ward.length() > 0) {
+                builder.append(ward);
+                hasValue = true;
+            }
+            if (district.length() > 0) {
+                if (hasValue) builder.append(", ");
+                builder.append(district);
+                hasValue = true;
+            }
+            if (city.length() > 0) {
+                if (hasValue) builder.append(", ");
+                builder.append(city);
+            }
+
+            selectedLocation = builder.toString();
+            tvSelectedLocation.setText("📍 " + selectedLocation);
+            cardSelectedLocation.setVisibility(View.VISIBLE);
+
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
 }

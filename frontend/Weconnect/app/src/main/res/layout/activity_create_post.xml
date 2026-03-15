@@ -340,6 +340,32 @@
                     tools:text="👥 Giới hạn: 10 người" />
 
             </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSelectedLocation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/card_surface"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="0dp">
+
+                <TextView
+                    android:id="@+id/tvSelectedLocation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="16dp"
+                    android:background="@drawable/bg_selected_tag"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="8dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="📍 Phường Phú Lương, Hà Đông, Hà Nội" />
+
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </ScrollView>

@@ -13,9 +13,10 @@ public class Post {
     private int commentsCount;
     private int maxMembers;
     private boolean joined;
+    private String location;
 
     // Constructor
-    public Post(String id, String username, String timeAgo, String content,String interestTag,
+    public Post(String id, String username, String timeAgo, String content, String interestTag, String location,
                 int avatarResId, int imageResId, int memberCount, int likesCount,
                 int commentsCount, int maxMembers, boolean joined) {
         this.id = id;
@@ -30,6 +31,7 @@ public class Post {
         this.commentsCount = commentsCount;
         this.maxMembers = maxMembers;
         this.joined = joined;
+        this.location = location;
     }
 
     // Getters
@@ -38,6 +40,7 @@ public class Post {
     public String getTimeAgo() { return timeAgo; }
     public String getContent() { return content; }
     public String getInterestTag() { return interestTag; }
+    public String getLocation() { return location; }
     public int getAvatarResId() { return avatarResId; }
     public int getImageResId() { return imageResId; }
     public int getMemberCount() { return memberCount; }
