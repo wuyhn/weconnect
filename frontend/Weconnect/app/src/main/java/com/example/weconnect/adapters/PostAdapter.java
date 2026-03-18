@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.activities.ParticipantsActivity;
+import com.example.weconnect.activities.UserProfileActivity;
 import com.example.weconnect.models.Post;
 
 import java.util.List;
@@ -44,6 +45,17 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.tvContent.setText(post.getContent());
 
         holder.ivAvatar.setImageResource(post.getAvatarResId());
+        holder.ivAvatar.setOnClickListener(v -> {
+            Intent intent = new Intent(context, UserProfileActivity.class);
+            intent.putExtra("username", post.getUsername());
+            context.startActivity(intent);
+        });
+
+        holder.tvUsername.setOnClickListener(v -> {
+            Intent intent = new Intent(context, UserProfileActivity.class);
+            intent.putExtra("username", post.getUsername());
+            context.startActivity(intent);
+        });
 
         if (post.getImageResId() != 0) {
             holder.ivPostImage.setVisibility(View.VISIBLE);

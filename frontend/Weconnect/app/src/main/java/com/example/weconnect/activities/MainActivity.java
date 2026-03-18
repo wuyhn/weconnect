@@ -116,7 +116,11 @@ public class MainActivity extends AppCompatActivity {
             createPostLauncher.launch(intent);
         });
 
-        ivSearch.setOnClickListener(v -> showToast("Tìm kiếm"));
+        ivSearch.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, SearchActivity.class);
+            intent.putExtra("search_posts", new ArrayList<>(postList));
+            startActivity(intent);
+        });
 
         // ✅ Click vào "Bạn đang nghĩ gì?" để tạo bài viết
         statusHeader.setOnClickListener(v -> {

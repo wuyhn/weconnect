@@ -45,4 +45,18 @@
         <item name="chipCornerRadius">16dp</item>
         <item name="chipStrokeWidth">0dp</item>
     </style>
+
+    <style name="ProfileInterestChip" parent="Widget.MaterialComponents.Chip.Entry">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="chipBackgroundColor">@color/chip_background_state</item>
+        <item name="android:textColor">@color/chip_text_state</item>
+        <item name="chipCornerRadius">16dp</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="closeIconVisible">false</item>
+        <item name="checkedIconVisible">false</item>
+    </style>
+        <dimen name="profile_interest_chip_radius">16dp</dimen>
+
+
 </resources>

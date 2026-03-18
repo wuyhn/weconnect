@@ -1,6 +1,6 @@
 package com.example.weconnect.models;
 
-public class Post {
+public class Post implements java.io.Serializable {
     private String id;
     private String username;
     private String timeAgo;
@@ -14,11 +14,22 @@ public class Post {
     private int maxMembers;
     private boolean joined;
     private String location;
+    private long startTimeMillis;
+    private long endTimeMillis;
+    private boolean archived;
 
-    // Constructor
     public Post(String id, String username, String timeAgo, String content, String interestTag, String location,
                 int avatarResId, int imageResId, int memberCount, int likesCount,
                 int commentsCount, int maxMembers, boolean joined) {
+        this(id, username, timeAgo, content, interestTag, location, avatarResId, imageResId,
+                memberCount, likesCount, commentsCount, maxMembers, joined,
+                System.currentTimeMillis(), System.currentTimeMillis() + 24L * 60L * 60L * 1000L, false);
+    }
+
+    public Post(String id, String username, String timeAgo, String content, String interestTag, String location,
+                int avatarResId, int imageResId, int memberCount, int likesCount,
+                int commentsCount, int maxMembers, boolean joined, long startTimeMillis,
+                long endTimeMillis, boolean archived) {
         this.id = id;
         this.username = username;
         this.timeAgo = timeAgo;
@@ -32,9 +43,11 @@ public class Post {
         this.maxMembers = maxMembers;
         this.joined = joined;
         this.location = location;
+        this.startTimeMillis = startTimeMillis;
+        this.endTimeMillis = endTimeMillis;
+        this.archived = archived;
     }
 
-    // Getters
     public String getId() { return id; }
     public String getUsername() { return username; }
     public String getTimeAgo() { return timeAgo; }
@@ -48,7 +61,25 @@ public class Post {
     public int getCommentsCount() { return commentsCount; }
     public int getMaxMembers() { return maxMembers; }
     public boolean isJoined() { return joined; }
+    public long getStartTimeMillis() { return startTimeMillis; }
+    public long getEndTimeMillis() { return endTimeMillis; }
+    public boolean isArchived() { return archived; }
 
-    // Setters
+    public boolean isExpired() {
+        return System.currentTimeMillis() > endTimeMillis;
+    }
+
+    public boolean isActive() {
+        return !archived && !isExpired();
+    }
+
+    public String getStatusLabel() {
+        if (archived || isExpired()) {
+            return "Archived";
+        }
+        return "Active";
+    }
+
     public void setJoined(boolean joined) { this.joined = joined; }
+    public void setArchived(boolean archived) { this.archived = archived; }
 }
