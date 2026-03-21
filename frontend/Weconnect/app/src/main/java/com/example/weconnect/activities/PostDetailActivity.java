@@ -1,13 +1,17 @@
 package com.example.weconnect.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.content.Intent;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.weconnect.activities.UserProfileActivity;
+
 import com.example.weconnect.R;
+import com.example.weconnect.models.Post;
+import com.google.android.material.button.MaterialButton;
 
 public class PostDetailActivity extends AppCompatActivity {
 
@@ -17,7 +21,11 @@ public class PostDetailActivity extends AppCompatActivity {
     private TextView tvPostDetailTag;
     private TextView tvPostDetailLocation;
     private TextView tvPostDetailMembers;
+    private TextView tvPostDetailTime;
+    private TextView tvPostDetailStatus;
+    private MaterialButton btnOpenGroupChat;
     private String username;
+    private Post post;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +44,9 @@ public class PostDetailActivity extends AppCompatActivity {
         tvPostDetailTag = findViewById(R.id.tvPostDetailTag);
         tvPostDetailLocation = findViewById(R.id.tvPostDetailLocation);
         tvPostDetailMembers = findViewById(R.id.tvPostDetailMembers);
+        tvPostDetailTime = findViewById(R.id.tvPostDetailTime);
+        tvPostDetailStatus = findViewById(R.id.tvPostDetailStatus);
+        btnOpenGroupChat = findViewById(R.id.btnOpenGroupChat);
     }
 
     private void setupClickListeners() {
@@ -46,37 +57,47 @@ public class PostDetailActivity extends AppCompatActivity {
             intent.putExtra("username", username);
             startActivity(intent);
         });
+
+        btnOpenGroupChat.setOnClickListener(v -> openRelatedGroupChat());
     }
 
     private void bindPostData() {
-        username = getIntent().getStringExtra("post_username");
-        String content = getIntent().getStringExtra("post_content");
-        String tag = getIntent().getStringExtra("post_tag");
-        String location = getIntent().getStringExtra("post_location");
-        int memberCount = getIntent().getIntExtra("post_member_count", 0);
-        int maxMembers = getIntent().getIntExtra("post_max_members", 0);
+        post = (Post) getIntent().getSerializableExtra("post");
+        if (post == null) {
+            finish();
+            return;
+        }
 
-        if (username == null) username = "";
-        if (content == null) content = "";
-        if (tag == null) tag = "";
-        if (location == null) location = "";
-
+        username = post.getUsername();
         tvPostDetailUsername.setText(username);
-        tvPostDetailContent.setText(content);
-        tvPostDetailMembers.setText("👥 " + memberCount + "/" + maxMembers);
+        tvPostDetailContent.setText(post.getContent());
+        tvPostDetailMembers.setText("Members: " + post.getMemberCount() + "/" + post.getMaxMembers());
+        tvPostDetailTime.setText("Created: " + post.getTimeAgo());
+        tvPostDetailStatus.setText("Status: " + post.getStatusLabel());
 
-        if (tag.length() > 0) {
+        if (post.getInterestTag() != null && post.getInterestTag().length() > 0) {
             tvPostDetailTag.setVisibility(View.VISIBLE);
-            tvPostDetailTag.setText(tag);
+            tvPostDetailTag.setText(post.getInterestTag());
         } else {
             tvPostDetailTag.setVisibility(View.GONE);
         }
 
-        if (location.length() > 0) {
+        if (post.getLocation() != null && post.getLocation().length() > 0) {
             tvPostDetailLocation.setVisibility(View.VISIBLE);
-            tvPostDetailLocation.setText("📍 " + location);
+            tvPostDetailLocation.setText("Location: " + post.getLocation());
         } else {
             tvPostDetailLocation.setVisibility(View.GONE);
         }
+    }
+
+    private void openRelatedGroupChat() {
+        if (post == null) {
+            return;
+        }
+
+        Intent intent = new Intent(this, ChatListActivity.class);
+        intent.putExtra("highlight_tag", post.getInterestTag());
+        startActivity(intent);
+        Toast.makeText(this, "Opened chat list for this activity.", Toast.LENGTH_SHORT).show();
     }
 }

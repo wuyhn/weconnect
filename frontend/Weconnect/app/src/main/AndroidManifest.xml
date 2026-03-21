@@ -36,6 +36,9 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity android:name=".activities.SearchActivity" />
+        <activity android:name=".activities.ArchivePostsActivity" />
+        <activity android:name=".activities.ChatListActivity" />
+        <activity android:name=".activities.ConversationActivity" />
         <activity android:name=".activities.UserProfileActivity" />
         <activity android:name=".activities.PostDetailActivity" />
 

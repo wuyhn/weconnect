@@ -90,6 +90,28 @@
                         android:focusable="true"/>
 
                     <TextView
+                        android:id="@+id/tvPostDetailTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Created: just now"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/tvPostDetailStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_selected_tag"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="Status: Active"
+                        android:textColor="@android:color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
                         android:id="@+id/tvPostDetailContent"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -135,6 +157,17 @@
                         android:textColor="@android:color/white"
                         android:textSize="14sp"
                         android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenGroupChat"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="16dp"
+                        android:text="Open group chat"
+                        android:textAllCaps="false"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/primary_pink"
+                        app:cornerRadius="24dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

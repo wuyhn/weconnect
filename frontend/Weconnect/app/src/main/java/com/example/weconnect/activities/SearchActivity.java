@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.weconnect.R;
 import com.example.weconnect.adapters.SearchResultAdapter;
 import com.example.weconnect.data.FakeSearchDataSource;
+import com.example.weconnect.data.FakePostRepository;
 import com.example.weconnect.data.SearchRepository;
 import com.example.weconnect.models.Post;
 import com.example.weconnect.models.SearchResultItem;
@@ -54,11 +55,7 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void setupRepository() {
-        ArrayList<Post> posts = (ArrayList<Post>) getIntent().getSerializableExtra("search_posts");
-        if (posts == null) {
-            posts = new ArrayList<>();
-        }
-
+        ArrayList<Post> posts = new ArrayList<>(FakePostRepository.getInstance().getActivePosts());
         searchRepository = new SearchRepository(new FakeSearchDataSource(posts));
     }
 
@@ -133,7 +130,8 @@ public class SearchActivity extends AppCompatActivity {
                         post.getInterestTag(),
                         post.getLocation(),
                         post.getMemberCount(),
-                        post.getMaxMembers()
+                        post.getMaxMembers(),
+                        post
                 ));
             }
         }

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.activities.ParticipantsActivity;
+import com.example.weconnect.activities.PostDetailActivity;
 import com.example.weconnect.activities.UserProfileActivity;
 import com.example.weconnect.models.Post;
 
@@ -21,8 +22,8 @@ import java.util.List;
 
 public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder> {
 
-    private Context context;
-    private List<Post> postList;
+    private final Context context;
+    private final List<Post> postList;
 
     public PostAdapter(Context context, List<Post> postList) {
         this.context = context;
@@ -43,19 +44,11 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.tvUsername.setText(post.getUsername());
         holder.tvTime.setText(post.getTimeAgo());
         holder.tvContent.setText(post.getContent());
+        holder.itemView.setOnClickListener(v -> openPostDetail(post));
 
         holder.ivAvatar.setImageResource(post.getAvatarResId());
-        holder.ivAvatar.setOnClickListener(v -> {
-            Intent intent = new Intent(context, UserProfileActivity.class);
-            intent.putExtra("username", post.getUsername());
-            context.startActivity(intent);
-        });
-
-        holder.tvUsername.setOnClickListener(v -> {
-            Intent intent = new Intent(context, UserProfileActivity.class);
-            intent.putExtra("username", post.getUsername());
-            context.startActivity(intent);
-        });
+        holder.ivAvatar.setOnClickListener(v -> openUserProfile(post.getUsername()));
+        holder.tvUsername.setOnClickListener(v -> openUserProfile(post.getUsername()));
 
         if (post.getImageResId() != 0) {
             holder.ivPostImage.setVisibility(View.VISIBLE);
@@ -73,30 +66,28 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
         if (post.getLocation() != null && !post.getLocation().isEmpty()) {
             holder.tvLocation.setVisibility(View.VISIBLE);
-            holder.tvLocation.setText("📍 " + post.getLocation());
+            holder.tvLocation.setText("Location: " + post.getLocation());
         } else {
             holder.tvLocation.setVisibility(View.GONE);
         }
 
         if (post.isJoined()) {
-            holder.btnJoinGroup.setText("Đã tham gia");
+            holder.btnJoinGroup.setText("Da tham gia");
             holder.btnJoinGroup.setEnabled(false);
             holder.btnJoinGroup.setAlpha(0.6f);
         } else {
-            holder.btnJoinGroup.setText("Tham gia nhóm");
+            holder.btnJoinGroup.setText("Tham gia nhom");
             holder.btnJoinGroup.setEnabled(true);
             holder.btnJoinGroup.setAlpha(1.0f);
             holder.btnJoinGroup.setOnClickListener(v -> {
-                Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Da gui yeu cau tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
                 post.setJoined(true);
                 notifyItemChanged(position);
             });
         }
 
-        String memberText = "👥 " + post.getMemberCount() + "/" + post.getMaxMembers();
-        holder.btnViewMembers.setText(memberText);
+        holder.btnViewMembers.setText("Members: " + post.getMemberCount() + "/" + post.getMaxMembers());
         holder.btnViewMembers.setTextColor(0xFF000000);
-
         holder.btnViewMembers.setOnClickListener(v -> {
             Intent intent = new Intent(context, ParticipantsActivity.class);
             intent.putExtra("post_id", post.getId());
@@ -109,6 +100,18 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     @Override
     public int getItemCount() {
         return postList.size();
+    }
+
+    private void openPostDetail(Post post) {
+        Intent intent = new Intent(context, PostDetailActivity.class);
+        intent.putExtra("post", post);
+        context.startActivity(intent);
+    }
+
+    private void openUserProfile(String username) {
+        Intent intent = new Intent(context, UserProfileActivity.class);
+        intent.putExtra("username", username);
+        context.startActivity(intent);
     }
 
     public static class PostViewHolder extends RecyclerView.ViewHolder {

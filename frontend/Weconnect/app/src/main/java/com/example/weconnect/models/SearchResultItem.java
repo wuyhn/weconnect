@@ -17,6 +17,7 @@ public class SearchResultItem {
     private String location;
     private int memberCount;
     private int maxMembers;
+    private Post post;
 
     public SearchResultItem(int viewType, String title, String subtitle, int avatarResId) {
         this.viewType = viewType;
@@ -27,7 +28,7 @@ public class SearchResultItem {
 
     public SearchResultItem(int viewType, String title, String subtitle, int avatarResId,
                             String username, String content, String tag, String location,
-                            int memberCount, int maxMembers) {
+                            int memberCount, int maxMembers, Post post) {
         this.viewType = viewType;
         this.title = title;
         this.subtitle = subtitle;
@@ -38,6 +39,7 @@ public class SearchResultItem {
         this.location = location;
         this.memberCount = memberCount;
         this.maxMembers = maxMembers;
+        this.post = post;
     }
 
     public int getViewType() {
@@ -78,5 +80,9 @@ public class SearchResultItem {
 
     public int getMaxMembers() {
         return maxMembers;
+    }
+
+    public Post getPost() {
+        return post;
     }
 }

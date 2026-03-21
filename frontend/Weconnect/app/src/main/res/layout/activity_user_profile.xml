@@ -22,26 +22,26 @@
             android:layout_height="48dp"
             android:background="@drawable/bg_action_icon_circle"
             android:clickable="true"
+            android:contentDescription="Back"
             android:focusable="true"
             android:padding="12dp"
             android:src="@drawable/ic_close"
-            android:contentDescription="Quay lại"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:tint="@color/primary_pink" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Hồ sơ người dùng"
+            android:text="Ho so nguoi dung"
             android:textColor="@color/primary_pink"
             android:textSize="22sp"
             android:textStyle="bold"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <View
@@ -55,8 +55,8 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:fillViewport="true"
-        app:layout_constraintTop_toBottomOf="@id/dividerUserProfile"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dividerUserProfile">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -75,8 +75,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
                     android:gravity="center_horizontal"
+                    android:orientation="vertical"
                     android:padding="20dp">
 
                     <androidx.cardview.widget.CardView
@@ -98,7 +98,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Quỳnh Nguyễn"
+                        android:text="Quynh Nguyen"
                         android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
@@ -116,7 +116,7 @@
                             android:background="@drawable/bg_selected_tag"
                             android:paddingHorizontal="14dp"
                             android:paddingVertical="8dp"
-                            android:text="Uy tín: 92"
+                            android:text="Uy tin: 92"
                             android:textColor="@android:color/white"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -129,7 +129,7 @@
                             android:background="@drawable/bg_selected_tag"
                             android:paddingHorizontal="14dp"
                             android:paddingVertical="8dp"
-                            android:text="⭐ 4.8"
+                            android:text="Rating: 4.8"
                             android:textColor="@android:color/white"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -148,19 +148,19 @@
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:layout_marginEnd="6dp"
-                            android:text="Kết bạn"
+                            android:text="Ket ban"
                             android:textAllCaps="false"
                             android:textStyle="bold"
                             app:backgroundTint="@color/primary_pink"
                             app:cornerRadius="24dp" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnReportUser"
+                            android:id="@+id/btnToggleBlock"
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
                             android:layout_marginStart="6dp"
-                            android:text="Báo cáo"
+                            android:text="Chan"
                             android:textAllCaps="false"
                             android:textStyle="bold"
                             android:textColor="@color/primary_pink"
@@ -168,17 +168,44 @@
                             app:cornerRadius="24dp"
                             app:strokeColor="@color/primary_pink"
                             app:strokeWidth="1dp" />
-
                     </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReportUser"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:text="Bao cao nguoi dung"
+                        android:textAllCaps="false"
+                        android:textStyle="bold"
+                        android:textColor="@color/primary_pink"
+                        app:backgroundTint="@color/card_surface"
+                        app:cornerRadius="24dp"
+                        app:strokeColor="@color/primary_pink"
+                        app:strokeWidth="1dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnViewArchive"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:text="View archived posts"
+                        android:textAllCaps="false"
+                        android:textColor="@color/primary_pink"
+                        app:backgroundTint="@color/card_surface"
+                        app:cornerRadius="24dp"
+                        app:strokeColor="@color/primary_pink"
+                        app:strokeWidth="1dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:layout_marginBottom="10dp"
-                android:text="Sở thích"
+                android:text="So thich"
                 android:textColor="@color/primary_pink"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -199,14 +226,14 @@
                     app:chipSpacingHorizontal="8dp"
                     app:chipSpacingVertical="8dp"
                     app:singleLine="false" />
-
             </com.google.android.material.card.MaterialCardView>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:layout_marginBottom="10dp"
-                android:text="Đánh giá từ người dùng khác"
+                android:text="Danh gia tu nguoi dung khac"
                 android:textColor="@color/primary_pink"
                 android:textSize="16sp"
                 android:textStyle="bold" />
