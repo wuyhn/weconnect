@@ -66,9 +66,16 @@ public class ConversationActivity extends AppCompatActivity {
 
     private void bindRoom() {
         String roomId = getIntent().getStringExtra("room_id");
-        room = FakeChatRepository.getInstance().getRoomById(roomId);
+        String chatName = getIntent().getStringExtra("chat_name");
+
+        if (roomId != null) {
+            room = FakeChatRepository.getInstance().getRoomById(roomId);
+        } else if (chatName != null) {
+            room = FakeChatRepository.getInstance().getOrCreateDirectRoom(chatName);
+        }
+
         if (room == null) {
-            Toast.makeText(this, "Chat room not found.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Không tìm thấy phòng chat.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -82,7 +89,7 @@ public class ConversationActivity extends AppCompatActivity {
             tvConversationStatus.setBackgroundResource(R.drawable.bg_chat_type_badge_inactive);
             tvConversationStatus.setTextColor(0xFF7A7A7A);
         } else {
-            tvConversationStatus.setText("Dang hoat dong");
+            tvConversationStatus.setText("Đang hoạt động");
             tvConversationStatus.setBackgroundResource(R.drawable.bg_chat_type_badge);
             tvConversationStatus.setTextColor(0xFFFF4D6D);
         }

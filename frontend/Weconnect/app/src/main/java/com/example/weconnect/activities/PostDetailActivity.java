@@ -71,9 +71,10 @@ public class PostDetailActivity extends AppCompatActivity {
         username = post.getUsername();
         tvPostDetailUsername.setText(username);
         tvPostDetailContent.setText(post.getContent());
-        tvPostDetailMembers.setText("Members: " + post.getMemberCount() + "/" + post.getMaxMembers());
-        tvPostDetailTime.setText("Created: " + post.getTimeAgo());
-        tvPostDetailStatus.setText("Status: " + post.getStatusLabel());
+        tvPostDetailMembers.setText("Thành viên: " + post.getMemberCount() + "/" + post.getMaxMembers());
+        tvPostDetailTime.setText("Đăng lúc: " + post.getTimeAgo());
+        tvPostDetailStatus.setText("Trạng thái: " + post.getStatusLabel());
+
 
         if (post.getInterestTag() != null && post.getInterestTag().length() > 0) {
             tvPostDetailTag.setVisibility(View.VISIBLE);
@@ -84,9 +85,17 @@ public class PostDetailActivity extends AppCompatActivity {
 
         if (post.getLocation() != null && post.getLocation().length() > 0) {
             tvPostDetailLocation.setVisibility(View.VISIBLE);
-            tvPostDetailLocation.setText("Location: " + post.getLocation());
+            tvPostDetailLocation.setText("Địa điểm: " + post.getLocation());
         } else {
             tvPostDetailLocation.setVisibility(View.GONE);
+        }
+
+        // Only show group chat for members
+        if (post.isJoined()) {
+            btnOpenGroupChat.setVisibility(View.VISIBLE);
+            btnOpenGroupChat.setText("Mở nhóm chat");
+        } else {
+            btnOpenGroupChat.setVisibility(View.GONE);
         }
     }
 
@@ -98,6 +107,6 @@ public class PostDetailActivity extends AppCompatActivity {
         Intent intent = new Intent(this, ChatListActivity.class);
         intent.putExtra("highlight_tag", post.getInterestTag());
         startActivity(intent);
-        Toast.makeText(this, "Opened chat list for this activity.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Mở danh sách chat cho hoạt động này.", Toast.LENGTH_SHORT).show();
     }
 }

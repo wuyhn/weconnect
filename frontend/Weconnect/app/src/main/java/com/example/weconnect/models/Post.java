@@ -82,4 +82,7 @@ public class Post implements java.io.Serializable {
 
     public void setJoined(boolean joined) { this.joined = joined; }
     public void setArchived(boolean archived) { this.archived = archived; }
+    public void setContent(String content) { this.content = content; }
+    public void setLocation(String location) { this.location = location; }
+    public void setInterestTag(String tag) { this.interestTag = tag; }
 }

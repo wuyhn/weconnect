@@ -77,9 +77,9 @@ public class ChatRoom implements Serializable {
 
     public String getTypeLabel() {
         if (TYPE_GROUP.equals(type)) {
-            return "Hoat dong";
+            return "Hoạt động";
         }
-        return "Lien he";
+        return "Liên hệ";
     }
 
     public void addMessage(ChatMessage message) {

@@ -1,46 +1,44 @@
 package com.example.weconnect.data;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FakeSocialRepository {
 
+    public enum FriendStatus {
+        NONE,           // Chưa kết bạn
+        PENDING_SENT,   // Đã gửi lời mời
+        PENDING_RECEIVED, // Nhận được lời mời
+        FRIEND,         // Đã là bạn bè
+        BLOCKED         // Đã chặn
+    }
+
     public static class SocialState {
         private final boolean selfProfile;
-        private boolean friend;
-        private boolean blocked;
+        private FriendStatus friendStatus;
 
-        public SocialState(boolean selfProfile, boolean friend, boolean blocked) {
+        public SocialState(boolean selfProfile, FriendStatus friendStatus) {
             this.selfProfile = selfProfile;
-            this.friend = friend;
-            this.blocked = blocked;
+            this.friendStatus = friendStatus;
         }
 
-        public boolean isSelfProfile() {
-            return selfProfile;
-        }
+        public boolean isSelfProfile() { return selfProfile; }
 
-        public boolean isFriend() {
-            return friend;
-        }
+        public FriendStatus getFriendStatus() { return friendStatus; }
+        public void setFriendStatus(FriendStatus status) { this.friendStatus = status; }
 
-        public boolean isBlocked() {
-            return blocked;
-        }
-
-        public void setFriend(boolean friend) {
-            this.friend = friend;
-        }
-
-        public void setBlocked(boolean blocked) {
-            this.blocked = blocked;
-        }
+        // Convenience methods
+        public boolean isFriend() { return friendStatus == FriendStatus.FRIEND; }
+        public boolean isBlocked() { return friendStatus == FriendStatus.BLOCKED; }
+        public boolean isPendingSent() { return friendStatus == FriendStatus.PENDING_SENT; }
+        public boolean isPendingReceived() { return friendStatus == FriendStatus.PENDING_RECEIVED; }
     }
 
     private static FakeSocialRepository instance;
-
     private final Map<String, SocialState> stateMap = new HashMap<>();
-    private final String currentUsername = "Quynh Nguyen";
+    private final String currentUsername = "Quỳnh Nguyễn";
 
     private FakeSocialRepository() {
         seed();
@@ -53,42 +51,111 @@ public class FakeSocialRepository {
         return instance;
     }
 
+    public String getCurrentUsername() {
+        return currentUsername;
+    }
+
     public SocialState getState(String username) {
         SocialState state = stateMap.get(username);
-        if (state != null) {
-            return state;
-        }
+        if (state != null) return state;
 
         boolean self = currentUsername.equalsIgnoreCase(username);
-        SocialState fallback = new SocialState(self, false, false);
+        SocialState fallback = new SocialState(self, FriendStatus.NONE);
         stateMap.put(username, fallback);
         return fallback;
     }
 
-    public void toggleFriend(String username) {
+    public void sendFriendRequest(String username) {
         SocialState state = getState(username);
-        if (state.isSelfProfile() || state.isBlocked()) {
-            return;
+        if (state.isSelfProfile() || state.isBlocked()) return;
+        if (state.getFriendStatus() == FriendStatus.NONE) {
+            state.setFriendStatus(FriendStatus.PENDING_SENT);
+            // Add notification
+            FakeNotificationRepository.getInstance().addNotification(
+                    new FakeNotificationRepository.NotificationItem(
+                            FakeNotificationRepository.NotificationType.FRIEND_REQUEST_SENT,
+                            "Bạn đã gửi lời mời kết bạn đến " + username,
+                            username,
+                            System.currentTimeMillis()
+                    )
+            );
         }
-        state.setFriend(!state.isFriend());
     }
 
-    public void toggleBlocked(String username) {
+    public void acceptFriendRequest(String username) {
         SocialState state = getState(username);
-        if (state.isSelfProfile()) {
-            return;
+        if (state.getFriendStatus() == FriendStatus.PENDING_RECEIVED) {
+            state.setFriendStatus(FriendStatus.FRIEND);
+            FakeNotificationRepository.getInstance().addNotification(
+                    new FakeNotificationRepository.NotificationItem(
+                            FakeNotificationRepository.NotificationType.FRIEND_ACCEPTED,
+                            "Bạn và " + username + " đã trở thành bạn bè",
+                            username,
+                            System.currentTimeMillis()
+                    )
+            );
         }
-        boolean blocked = !state.isBlocked();
-        state.setBlocked(blocked);
-        if (blocked) {
-            state.setFriend(false);
+    }
+
+    public void declineFriendRequest(String username) {
+        SocialState state = getState(username);
+        if (state.getFriendStatus() == FriendStatus.PENDING_RECEIVED) {
+            state.setFriendStatus(FriendStatus.NONE);
         }
+    }
+
+    public void cancelFriendRequest(String username) {
+        SocialState state = getState(username);
+        if (state.getFriendStatus() == FriendStatus.PENDING_SENT) {
+            state.setFriendStatus(FriendStatus.NONE);
+        }
+    }
+
+    public void unfriend(String username) {
+        SocialState state = getState(username);
+        if (state.isFriend()) {
+            state.setFriendStatus(FriendStatus.NONE);
+        }
+    }
+
+    public void blockUser(String username) {
+        SocialState state = getState(username);
+        if (state.isSelfProfile()) return;
+        state.setFriendStatus(FriendStatus.BLOCKED);
+    }
+
+    public void unblockUser(String username) {
+        SocialState state = getState(username);
+        if (state.isBlocked()) {
+            state.setFriendStatus(FriendStatus.NONE);
+        }
+    }
+
+    public int getFriendCount() {
+        int count = 0;
+        for (SocialState state : stateMap.values()) {
+            if (!state.isSelfProfile() && state.isFriend()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public List<String> getFriendNames() {
+        List<String> friends = new ArrayList<>();
+        for (Map.Entry<String, SocialState> entry : stateMap.entrySet()) {
+            if (!entry.getValue().isSelfProfile() && entry.getValue().isFriend()) {
+                friends.add(entry.getKey());
+            }
+        }
+        return friends;
     }
 
     private void seed() {
-        stateMap.put(currentUsername, new SocialState(true, false, false));
-        stateMap.put("Minh Hoang", new SocialState(false, true, false));
-        stateMap.put("Lan Anh", new SocialState(false, false, false));
-        stateMap.put("Hai Dang", new SocialState(false, false, true));
+        stateMap.put(currentUsername, new SocialState(true, FriendStatus.NONE));
+        stateMap.put("Minh Hoàng", new SocialState(false, FriendStatus.FRIEND));
+        stateMap.put("Lan Anh", new SocialState(false, FriendStatus.NONE));
+        stateMap.put("Hải Đăng", new SocialState(false, FriendStatus.BLOCKED));
+        stateMap.put("Thu Hương", new SocialState(false, FriendStatus.PENDING_RECEIVED));
     }
 }

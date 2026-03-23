@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
                         String location = data.getStringExtra("post_location");
                         int maxMembers = data.getIntExtra("post_max_members", 0);
                         long now = System.currentTimeMillis();
+                        long endTime = data.getLongExtra("post_end_time", now + 24L * 60L * 60L * 1000L);
 
                         Post newPost = new Post(
                                 String.valueOf(now),
@@ -72,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
                                 maxMembers,
                                 false,
                                 now,
-                                now + 24L * 60L * 60L * 1000L,
+                                endTime,
                                 false
                         );
                         postRepository.addPost(newPost);
@@ -112,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnHome.setOnClickListener(v -> {
             highlightTab(btnHome);
-            showToast("Trang chu");
+            showToast("Trang ch\u1ee7");
         });
 
         btnMessages.setOnClickListener(v -> {
@@ -123,7 +124,8 @@ public class MainActivity extends AppCompatActivity {
 
         btnNotifications.setOnClickListener(v -> {
             highlightTab(btnNotifications);
-            showToast("Thong bao");
+            Intent intent = new Intent(MainActivity.this, NotificationsActivity.class);
+            startActivity(intent);
         });
 
         btnProfile.setOnClickListener(v -> {

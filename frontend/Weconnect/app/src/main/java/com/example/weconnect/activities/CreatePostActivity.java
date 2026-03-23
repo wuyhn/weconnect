@@ -7,9 +7,13 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.net.Uri;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.weconnect.R;
@@ -35,13 +39,24 @@ public class CreatePostActivity extends AppCompatActivity {
     private MaterialCardView cardSelectedLocation;
     private TextView tvSelectedLocation;
     private String selectedLocation = "";
+    private ImageView ivPostImagePreview;
+    private Uri selectedImageUri = null;
+
+    // Duration
+    private ImageView ivDuration;
+    private MaterialCardView cardSelectedDuration;
+    private TextView tvSelectedDuration;
+    private long selectedDurationMillis = 0;
+    private String selectedDurationLabel = "";
+
+    private static final long ONE_HOUR = 60L * 60L * 1000L;
+    private static final long ONE_DAY = 24L * ONE_HOUR;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_create_post);
 
-        // 1. Ánh xạ View
         ivClose = findViewById(R.id.ivClose);
         etPostContent = findViewById(R.id.etPostContent);
         tvUserName = findViewById(R.id.tvUserName);
@@ -53,59 +68,98 @@ public class CreatePostActivity extends AppCompatActivity {
         tvSelectedTag = findViewById(R.id.tvSelectedTag);
         cardSelectedLocation = findViewById(R.id.cardSelectedLocation);
         tvSelectedLocation = findViewById(R.id.tvSelectedLocation);
-
-        // 2. Click cho nút Close - Cực kỳ quan trọng
-//        ivClose.setOnClickListener(v -> handleExit());
-        ivClose.setOnClickListener(v -> {
-            // Log để kiểm tra xem có nhận lệnh không
-            android.util.Log.d("QUYNH_DEBUG", "Nút Close đã được bấm!");
-            finish();
-        });
-        // 3. Click nút Đăng
-        btnPost.setOnClickListener(v -> {
-            String content = etPostContent.getText().toString().trim();
-            if (content.isEmpty()) {
-                Toast.makeText(this, "Hãy nhập gì đó...", Toast.LENGTH_SHORT).show();
-            } else {
-                Intent result = new Intent();
-                result.putExtra("post_content", content);
-                result.putExtra("post_username", tvUserName.getText().toString());
-                result.putExtra("post_time", "Vừa xong");
-                result.putExtra("post_tag", selectedTag);
-                result.putExtra("post_max_members", participantLimit);
-                result.putExtra("post_location", selectedLocation);
-                setResult(RESULT_OK, result);
-                finish();
-            }
-        });
-
-        // 4. Các icon phụ
-        ivAddImage.setOnClickListener(v -> Toast.makeText(this, "Thêm ảnh", Toast.LENGTH_SHORT).show());
-        ivAddLocation.setOnClickListener(v -> showLocationDialog());
-        ivTagInterest.setOnClickListener(v -> showTagDialog());
         ivParticipants = findViewById(R.id.ivParticipants);
         cardParticipantLimit = findViewById(R.id.cardParticipantLimit);
         tvParticipantLimit = findViewById(R.id.tvParticipantLimit);
 
-        ivParticipants.setOnClickListener(v -> showParticipantDialog());
+        // Duration views
+        ivDuration = findViewById(R.id.ivDuration);
+        cardSelectedDuration = findViewById(R.id.cardSelectedDuration);
+        tvSelectedDuration = findViewById(R.id.tvSelectedDuration);
 
-        // 5. Xử lý nút back hệ thống
+        ivClose.setOnClickListener(v -> finish());
+
+        // Post button with validation
+        btnPost.setOnClickListener(v -> handlePost());
+
+        ivPostImagePreview = findViewById(R.id.ivPostImagePreview);
+
+        // Image picker launcher
+        ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        selectedImageUri = result.getData().getData();
+                        if (selectedImageUri != null && ivPostImagePreview != null) {
+                            ivPostImagePreview.setImageURI(selectedImageUri);
+                            ivPostImagePreview.setVisibility(View.VISIBLE);
+                        }
+                    }
+                }
+        );
+
+        ivAddImage.setOnClickListener(v -> {
+            Intent pickImage = new Intent(Intent.ACTION_PICK);
+            pickImage.setType("image/*");
+            imagePickerLauncher.launch(pickImage);
+        });
+        ivAddLocation.setOnClickListener(v -> showLocationDialog());
+        ivTagInterest.setOnClickListener(v -> showTagDialog());
+        ivParticipants.setOnClickListener(v -> showParticipantDialog());
+        ivDuration.setOnClickListener(v -> showDurationDialog());
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 handleExit();
             }
         });
+    }
 
+    private void handlePost() {
+        String content = etPostContent.getText().toString().trim();
 
+        // Validation
+        if (content.isEmpty()) {
+            Toast.makeText(this, "Vui lòng nhập nội dung bài viết", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (selectedTag.isEmpty()) {
+            Toast.makeText(this, "Vui lòng chọn sở thích cho bài viết", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (selectedLocation.isEmpty()) {
+            Toast.makeText(this, "Vui lòng chọn địa điểm", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (participantLimit <= 0) {
+            Toast.makeText(this, "Vui lòng chọn giới hạn người tham gia", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (selectedDurationMillis <= 0) {
+            Toast.makeText(this, "Vui lòng chọn thời hạn bài viết", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        Intent result = new Intent();
+        result.putExtra("post_content", content);
+        result.putExtra("post_username", tvUserName.getText().toString());
+        result.putExtra("post_time", "Vừa xong");
+        result.putExtra("post_tag", selectedTag);
+        result.putExtra("post_max_members", participantLimit);
+        result.putExtra("post_location", selectedLocation);
+        result.putExtra("post_end_time", now + selectedDurationMillis);
+        setResult(RESULT_OK, result);
+        finish();
     }
 
     private void handleExit() {
         if (!etPostContent.getText().toString().trim().isEmpty()) {
             new AlertDialog.Builder(this)
-                    .setTitle("Hủy bài viết?")
+                    .setTitle("Huỷ bài viết?")
                     .setMessage("Nội dung sẽ không được lưu.")
-                    .setPositiveButton("Hủy bỏ", (d, w) -> finish())
+                    .setPositiveButton("Huỷ bỏ", (d, w) -> finish())
                     .setNegativeButton("Viết tiếp", null)
                     .show();
         } else {
@@ -113,12 +167,207 @@ public class CreatePostActivity extends AppCompatActivity {
         }
     }
 
+    private void showDurationDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(getResources().getColor(R.color.soft_beige, null));
+
+        // Header
+        LinearLayout headerRow = new LinearLayout(this);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        headerRow.setPadding(48, 40, 48, 24);
+
+        ImageView ivClose = new ImageView(this);
+        ivClose.setImageResource(R.drawable.ic_close);
+        ivClose.setColorFilter(getResources().getColor(R.color.primary_pink, null));
+        ivClose.setBackgroundResource(R.drawable.bg_action_icon_circle);
+        ivClose.setPadding(28, 28, 28, 28);
+        ivClose.setLayoutParams(new LinearLayout.LayoutParams(120, 120));
+        ivClose.setOnClickListener(v -> dialog.dismiss());
+        headerRow.addView(ivClose);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("Thời hạn bài viết");
+        tvTitle.setTextSize(20);
+        tvTitle.setTextColor(getResources().getColor(R.color.primary_pink, null));
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvTitle.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams titleP = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        tvTitle.setLayoutParams(titleP);
+        headerRow.addView(tvTitle);
+
+        android.widget.Space spacer = new android.widget.Space(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(120, 120));
+        headerRow.addView(spacer);
+        root.addView(headerRow);
+
+        View div = new View(this);
+        div.setBackgroundColor(0xFFE8E4DE);
+        div.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2));
+        root.addView(div);
+
+        // Quick select
+        TextView tvQuickLabel = new TextView(this);
+        tvQuickLabel.setText("⚡ Chọn nhanh");
+        tvQuickLabel.setTextSize(15);
+        tvQuickLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvQuickLabel.setTextColor(getResources().getColor(R.color.text_primary, null));
+        tvQuickLabel.setPadding(48, 36, 48, 16);
+        root.addView(tvQuickLabel);
+
+        String[] quickLabels = {"30 phút", "1 giờ", "1 giờ 30'", "3 giờ", "12 giờ", "1 ngày", "2 ngày", "3 ngày", "7 ngày"};
+        long[] quickMillis = {
+                30L * 60 * 1000, ONE_HOUR, (long)(1.5 * ONE_HOUR),
+                3 * ONE_HOUR, 12 * ONE_HOUR,
+                ONE_DAY, 2 * ONE_DAY, 3 * ONE_DAY, 7 * ONE_DAY
+        };
+
+        com.google.android.material.chip.ChipGroup chipGroup = new com.google.android.material.chip.ChipGroup(this);
+        chipGroup.setPadding(40, 0, 40, 0);
+        chipGroup.setChipSpacingHorizontal(16);
+        chipGroup.setChipSpacingVertical(12);
+
+        for (int i = 0; i < quickLabels.length; i++) {
+            final int index = i;
+            com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
+            chip.setText(quickLabels[i]);
+            chip.setCheckable(true);
+            chip.setChipBackgroundColorResource(R.color.card_surface);
+            chip.setChipStrokeColorResource(R.color.primary_pink);
+            chip.setChipStrokeWidth(2f);
+            chip.setTextColor(getResources().getColor(R.color.text_primary, null));
+            chip.setChipCornerRadius(40f);
+            chip.setOnClickListener(v -> {
+                selectedDurationMillis = quickMillis[index];
+                selectedDurationLabel = quickLabels[index];
+                tvSelectedDuration.setText("⏰ Thời hạn: " + selectedDurationLabel);
+                cardSelectedDuration.setVisibility(View.VISIBLE);
+                dialog.dismiss();
+            });
+            chipGroup.addView(chip);
+        }
+        root.addView(chipGroup);
+
+        // Custom input
+        TextView tvCustomLabel = new TextView(this);
+        tvCustomLabel.setText("✏️  Hoặc nhập tự do");
+        tvCustomLabel.setTextSize(15);
+        tvCustomLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvCustomLabel.setTextColor(getResources().getColor(R.color.text_primary, null));
+        tvCustomLabel.setPadding(48, 32, 48, 16);
+        root.addView(tvCustomLabel);
+
+        com.google.android.material.card.MaterialCardView inputCard =
+                new com.google.android.material.card.MaterialCardView(this);
+        LinearLayout.LayoutParams cardP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardP.setMargins(40, 0, 40, 0);
+        inputCard.setLayoutParams(cardP);
+        inputCard.setCardBackgroundColor(getResources().getColor(R.color.card_surface, null));
+        inputCard.setRadius(48f);
+        inputCard.setCardElevation(6f);
+        inputCard.setStrokeWidth(0);
+
+        LinearLayout inputRow = new LinearLayout(this);
+        inputRow.setOrientation(LinearLayout.HORIZONTAL);
+        inputRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        inputRow.setPadding(48, 24, 48, 24);
+
+        EditText etHours = new EditText(this);
+        etHours.setHint("0");
+        etHours.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etHours.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        etHours.setBackground(null);
+        etHours.setTextSize(18);
+        etHours.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        inputRow.addView(etHours);
+
+        TextView tvH = new TextView(this);
+        tvH.setText(" giờ    ");
+        tvH.setTextSize(16);
+        tvH.setTextColor(getResources().getColor(R.color.text_secondary, null));
+        inputRow.addView(tvH);
+
+        EditText etMinutes = new EditText(this);
+        etMinutes.setHint("0");
+        etMinutes.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etMinutes.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        etMinutes.setBackground(null);
+        etMinutes.setTextSize(18);
+        etMinutes.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        inputRow.addView(etMinutes);
+
+        TextView tvM = new TextView(this);
+        tvM.setText(" phút");
+        tvM.setTextSize(16);
+        tvM.setTextColor(getResources().getColor(R.color.text_secondary, null));
+        inputRow.addView(tvM);
+
+        inputCard.addView(inputRow);
+        root.addView(inputCard);
+
+        // Confirm button
+        com.google.android.material.button.MaterialButton btnConfirm =
+                new com.google.android.material.button.MaterialButton(this);
+        btnConfirm.setText("Xác nhận");
+        btnConfirm.setTextSize(16);
+        btnConfirm.setAllCaps(false);
+        btnConfirm.setCornerRadius(72);
+        btnConfirm.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                getResources().getColor(R.color.primary_pink, null)));
+        LinearLayout.LayoutParams btnP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 140);
+        btnP.setMargins(48, 36, 48, 48);
+        btnConfirm.setLayoutParams(btnP);
+
+        btnConfirm.setOnClickListener(v -> {
+            String hStr = etHours.getText().toString().trim();
+            String mStr = etMinutes.getText().toString().trim();
+            int hours = hStr.isEmpty() ? 0 : Integer.parseInt(hStr);
+            int minutes = mStr.isEmpty() ? 0 : Integer.parseInt(mStr);
+            if (hours == 0 && minutes == 0) {
+                Toast.makeText(this, "Vui lòng nhập thời hạn", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            selectedDurationMillis = hours * ONE_HOUR + minutes * 60L * 1000L;
+            StringBuilder label = new StringBuilder();
+            if (hours > 0) label.append(hours).append(" giờ");
+            if (minutes > 0) {
+                if (hours > 0) label.append(" ");
+                label.append(minutes).append(" phút");
+            }
+            selectedDurationLabel = label.toString();
+            tvSelectedDuration.setText("⏰ Thời hạn: " + selectedDurationLabel);
+            cardSelectedDuration.setVisibility(View.VISIBLE);
+            dialog.dismiss();
+        });
+        root.addView(btnConfirm);
+
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(this);
+        scrollView.addView(root);
+        dialog.setContentView(scrollView);
+
+        dialog.setOnShowListener(dialogInterface -> {
+            BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
+            FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior behavior =
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+            }
+        });
+
+        dialog.show();
+    }
+
     private void showTagDialog() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = getLayoutInflater().inflate(R.layout.layout_tag_interest, null);
         dialog.setContentView(view);
 
-        // 1. Ép hiển thị Full màn hình
         dialog.setOnShowListener(dialogInterface -> {
             BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
             FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
@@ -130,19 +379,18 @@ public class CreatePostActivity extends AppCompatActivity {
             }
         });
 
-        // 2. Ánh xạ các nhóm Chip
         ChipGroup groupSport = view.findViewById(R.id.groupSport);
         ChipGroup groupStudy = view.findViewById(R.id.groupStudy);
         ChipGroup groupChill = view.findViewById(R.id.groupChill);
         MaterialButton btnOk = view.findViewById(R.id.btnOkInterest);
+        ImageView ivCloseInterest = view.findViewById(R.id.ivCloseInterest);
+        ivCloseInterest.setOnClickListener(v -> dialog.dismiss());
 
         ChipGroup[] allGroups = {groupSport, groupStudy, groupChill};
 
-        // 3. Logic: Chỉ được chọn 1 Tag duy nhất trên cả 3 nhóm
         for (ChipGroup currentGroup : allGroups) {
             currentGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
                 if (!checkedIds.isEmpty()) {
-                    // Nếu nhóm này có cái được chọn, thì bỏ chọn tất cả các nhóm còn lại
                     for (ChipGroup otherGroup : allGroups) {
                         if (otherGroup != group) {
                             otherGroup.clearCheck();
@@ -152,7 +400,6 @@ public class CreatePostActivity extends AppCompatActivity {
             });
         }
 
-        // 4. Bấm OK để xác nhận
         btnOk.setOnClickListener(v -> {
             String tagChosen = "";
             for (ChipGroup group : allGroups) {
@@ -164,20 +411,10 @@ public class CreatePostActivity extends AppCompatActivity {
                 }
             }
 
-//            if (!tagChosen.isEmpty()) {
-//                selectedTag = tagChosen; // Lưu vào biến toàn cục của Activity
-//                Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
-//                dialog.dismiss();
-//            } else {
-//                Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
-//            }
-
             if (!tagChosen.isEmpty()) {
                 selectedTag = tagChosen;
-
                 tvSelectedTag.setText(selectedTag);
                 cardSelectedTag.setVisibility(View.VISIBLE);
-
                 Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
             } else {
@@ -231,12 +468,12 @@ public class CreatePostActivity extends AppCompatActivity {
                     : "";
 
             if (input.length() == 0) {
-                Toast.makeText(this, "Bạn chưa nhập giới hạn người tham gia!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Ban chua nhap gioi han nguoi tham gia!", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             participantLimit = Integer.parseInt(input);
-            tvParticipantLimit.setText("👥 Giới hạn: " + participantLimit + " người");
+            tvParticipantLimit.setText("👥 Gioi han: " + participantLimit + " nguoi");
             cardParticipantLimit.setVisibility(View.VISIBLE);
 
             dialog.dismiss();
@@ -268,92 +505,118 @@ public class CreatePostActivity extends AppCompatActivity {
         TextView tvLocationPreview = view.findViewById(R.id.tvLocationPreview);
         MaterialButton btnOkLocation = view.findViewById(R.id.btnOkLocation);
 
+        ivCloseLocation.setOnClickListener(v -> dialog.dismiss());
+
+        // === Cascading data: City → District → Ward ===
+        java.util.LinkedHashMap<String, java.util.LinkedHashMap<String, String[]>> locationData = new java.util.LinkedHashMap<>();
+
+        // Hà Nội
+        java.util.LinkedHashMap<String, String[]> hanoiDistricts = new java.util.LinkedHashMap<>();
+        hanoiDistricts.put("Hà Đông", new String[]{"Phường Phú Lương", "Phường Vạn Phúc", "Phường Mỗ Lao", "Phường Yên Nghĩa", "Phường Quang Trung"});
+        hanoiDistricts.put("Cầu Giấy", new String[]{"Phường Dịch Vọng", "Phường Mai Dịch", "Phường Nghĩa Đô", "Phường Nghĩa Tân", "Phường Quan Hoa"});
+        hanoiDistricts.put("Thanh Xuân", new String[]{"Phường Nhân Chính", "Phường Thanh Xuân Trung", "Phường Hạ Đình", "Phường Khương Đình"});
+        hanoiDistricts.put("Ba Đình", new String[]{"Phường Đội Cấn", "Phường Cống Vị", "Phường Kim Mã", "Phường Liễu Giai"});
+        hanoiDistricts.put("Hoàn Kiếm", new String[]{"Phường Hàng Bài", "Phường Tràng Tiền", "Phường Cửa Đông", "Phường Lý Thái Tổ"});
+        locationData.put("Hà Nội", hanoiDistricts);
+
+        // TP.HCM
+        java.util.LinkedHashMap<String, String[]> hcmDistricts = new java.util.LinkedHashMap<>();
+        hcmDistricts.put("Thủ Đức", new String[]{"Phường Linh Trung", "Phường Hiệp Bình Chánh", "Phường Tam Bình", "Phường Trường Thọ"});
+        hcmDistricts.put("Quận 1", new String[]{"Phường Bến Nghé", "Phường Bến Thành", "Phường Đa Kao", "Phường Nguyễn Thái Bình"});
+        hcmDistricts.put("Quận 7", new String[]{"Phường Tân Phong", "Phường Phú Mỹ", "Phường Tân Kiểng", "Phường Tân Hưng"});
+        hcmDistricts.put("Bình Thạnh", new String[]{"Phường 1", "Phường 2", "Phường 3", "Phường 7", "Phường 11"});
+        locationData.put("TP.HCM", hcmDistricts);
+
+        // Đà Nẵng
+        java.util.LinkedHashMap<String, String[]> danangDistricts = new java.util.LinkedHashMap<>();
+        danangDistricts.put("Hải Châu", new String[]{"Phường Thạch Thang", "Phường Thanh Bình", "Phường Hải Châu I", "Phường Hải Châu II"});
+        danangDistricts.put("Sơn Trà", new String[]{"Phường An Hải Bắc", "Phường An Hải Đông", "Phường Mân Thái", "Phường Phước Mỹ"});
+        danangDistricts.put("Ngũ Hành Sơn", new String[]{"Phường Mỹ An", "Phường Khuê Mỹ", "Phường Hoà Hải", "Phường Hoà Quý"});
+        locationData.put("Đà Nẵng", danangDistricts);
+
+        // City adapter
+        String[] cities = locationData.keySet().toArray(new String[0]);
+        android.widget.ArrayAdapter<String> cityAdapter =
+                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, cities);
+        actCity.setAdapter(cityAdapter);
+
+        // When city selected → update districts
+        actCity.setOnItemClickListener((parent, v, position, id) -> {
+            String city = actCity.getText().toString();
+            actDistrict.setText("", false);
+            actWard.setText("", false);
+
+            java.util.LinkedHashMap<String, String[]> districts = locationData.get(city);
+            if (districts != null) {
+                String[] districtNames = districts.keySet().toArray(new String[0]);
+                actDistrict.setAdapter(new android.widget.ArrayAdapter<>(this,
+                        android.R.layout.simple_dropdown_item_1line, districtNames));
+            }
+            actWard.setAdapter(new android.widget.ArrayAdapter<>(this,
+                    android.R.layout.simple_dropdown_item_1line, new String[]{}));
+            updateLocationPreview(actCity, actDistrict, actWard, tvLocationPreview);
+        });
+
+        // When district selected → update wards
+        actDistrict.setOnItemClickListener((parent, v, position, id) -> {
+            String city = actCity.getText().toString();
+            String district = actDistrict.getText().toString();
+            actWard.setText("", false);
+
+            java.util.LinkedHashMap<String, String[]> districts = locationData.get(city);
+            if (districts != null) {
+                String[] wards = districts.get(district);
+                if (wards != null) {
+                    actWard.setAdapter(new android.widget.ArrayAdapter<>(this,
+                            android.R.layout.simple_dropdown_item_1line, wards));
+                }
+            }
+            updateLocationPreview(actCity, actDistrict, actWard, tvLocationPreview);
+        });
+
+        actWard.setOnItemClickListener((parent, v, position, id) ->
+                updateLocationPreview(actCity, actDistrict, actWard, tvLocationPreview));
+
+        // Pre-fill
+        if (selectedLocation != null && selectedLocation.length() > 0) {
+            tvLocationPreview.setText("📍 " + selectedLocation);
+        }
+
+        // Quick chips
         Chip chipHaDong = view.findViewById(R.id.chipHaDong);
         Chip chipCauGiay = view.findViewById(R.id.chipCauGiay);
         Chip chipThuDuc = view.findViewById(R.id.chipThuDuc);
         Chip chipHaiChau = view.findViewById(R.id.chipHaiChau);
 
-        ivCloseLocation.setOnClickListener(v -> dialog.dismiss());
-
-        String[] wards = {"Phường Phú Lương", "Phường Văn Quán", "Phường Mộ Lao", "Phường Yên Nghĩa"};
-        String[] districts = {"Hà Đông", "Cầu Giấy", "Thủ Đức", "Hải Châu"};
-        String[] cities = {"Hà Nội", "TP.HCM", "Đà Nẵng"};
-
-        android.widget.ArrayAdapter<String> wardAdapter =
-                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, wards);
-        android.widget.ArrayAdapter<String> districtAdapter =
-                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, districts);
-        android.widget.ArrayAdapter<String> cityAdapter =
-                new android.widget.ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, cities);
-
-        actWard.setAdapter(wardAdapter);
-        actDistrict.setAdapter(districtAdapter);
-        actCity.setAdapter(cityAdapter);
-
-        Runnable updatePreview = () -> {
-            String ward = actWard.getText() != null ? actWard.getText().toString().trim() : "";
-            String district = actDistrict.getText() != null ? actDistrict.getText().toString().trim() : "";
-            String city = actCity.getText() != null ? actCity.getText().toString().trim() : "";
-
-            StringBuilder builder = new StringBuilder("📍 ");
-            boolean hasValue = false;
-
-            if (ward.length() > 0) {
-                builder.append(ward);
-                hasValue = true;
-            }
-            if (district.length() > 0) {
-                if (hasValue) builder.append(", ");
-                builder.append(district);
-                hasValue = true;
-            }
-            if (city.length() > 0) {
-                if (hasValue) builder.append(", ");
-                builder.append(city);
-            }
-
-            if (!hasValue && city.length() == 0) {
-                tvLocationPreview.setText("📍 Chưa chọn địa điểm");
-            } else {
-                tvLocationPreview.setText(builder.toString());
-            }
-        };
-
-        actWard.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
-        actDistrict.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
-        actCity.setOnItemClickListener((parent, v, position, id) -> updatePreview.run());
+        chipHaDong.setText("Hà Đông");
+        chipCauGiay.setText("Cầu Giấy");
+        chipThuDuc.setText("Thủ Đức");
+        chipHaiChau.setText("Hải Châu");
 
         chipHaDong.setOnClickListener(v -> {
-            actWard.setText("Phường Phú Lương", false);
+            actCity.setText("Hà Nội", false);
+            actCity.getOnItemClickListener().onItemClick(null, v, 0, 0);
             actDistrict.setText("Hà Đông", false);
-            actCity.setText("Hà Nội", false);
-            updatePreview.run();
+            actDistrict.getOnItemClickListener().onItemClick(null, v, 0, 0);
         });
-
         chipCauGiay.setOnClickListener(v -> {
-            actWard.setText("Phường Văn Quán", false);
-            actDistrict.setText("Cầu Giấy", false);
             actCity.setText("Hà Nội", false);
-            updatePreview.run();
+            actCity.getOnItemClickListener().onItemClick(null, v, 0, 0);
+            actDistrict.setText("Cầu Giấy", false);
+            actDistrict.getOnItemClickListener().onItemClick(null, v, 0, 0);
         });
-
         chipThuDuc.setOnClickListener(v -> {
-            actWard.setText("Phường Mộ Lao", false);
-            actDistrict.setText("Thủ Đức", false);
             actCity.setText("TP.HCM", false);
-            updatePreview.run();
+            actCity.getOnItemClickListener().onItemClick(null, v, 0, 0);
+            actDistrict.setText("Thủ Đức", false);
+            actDistrict.getOnItemClickListener().onItemClick(null, v, 0, 0);
         });
-
         chipHaiChau.setOnClickListener(v -> {
-            actWard.setText("Phường Yên Nghĩa", false);
-            actDistrict.setText("Hải Châu", false);
             actCity.setText("Đà Nẵng", false);
-            updatePreview.run();
+            actCity.getOnItemClickListener().onItemClick(null, v, 0, 0);
+            actDistrict.setText("Hải Châu", false);
+            actDistrict.getOnItemClickListener().onItemClick(null, v, 0, 0);
         });
-
-        if (selectedLocation != null && selectedLocation.length() > 0) {
-            tvLocationPreview.setText("📍 " + selectedLocation);
-        }
 
         btnOkLocation.setOnClickListener(v -> {
             String ward = actWard.getText() != null ? actWard.getText().toString().trim() : "";
@@ -367,29 +630,38 @@ public class CreatePostActivity extends AppCompatActivity {
 
             StringBuilder builder = new StringBuilder();
             boolean hasValue = false;
-
-            if (ward.length() > 0) {
-                builder.append(ward);
-                hasValue = true;
-            }
-            if (district.length() > 0) {
-                if (hasValue) builder.append(", ");
-                builder.append(district);
-                hasValue = true;
-            }
-            if (city.length() > 0) {
-                if (hasValue) builder.append(", ");
-                builder.append(city);
-            }
+            if (ward.length() > 0) { builder.append(ward); hasValue = true; }
+            if (district.length() > 0) { if (hasValue) builder.append(", "); builder.append(district); hasValue = true; }
+            if (city.length() > 0) { if (hasValue) builder.append(", "); builder.append(city); }
 
             selectedLocation = builder.toString();
             tvSelectedLocation.setText("📍 " + selectedLocation);
             cardSelectedLocation.setVisibility(View.VISIBLE);
-
             dialog.dismiss();
         });
 
         dialog.show();
     }
 
+    private void updateLocationPreview(
+            com.google.android.material.textfield.MaterialAutoCompleteTextView actCity,
+            com.google.android.material.textfield.MaterialAutoCompleteTextView actDistrict,
+            com.google.android.material.textfield.MaterialAutoCompleteTextView actWard,
+            TextView tvPreview) {
+        String ward = actWard.getText() != null ? actWard.getText().toString().trim() : "";
+        String district = actDistrict.getText() != null ? actDistrict.getText().toString().trim() : "";
+        String city = actCity.getText() != null ? actCity.getText().toString().trim() : "";
+
+        StringBuilder builder = new StringBuilder("📍 ");
+        boolean hasValue = false;
+        if (ward.length() > 0) { builder.append(ward); hasValue = true; }
+        if (district.length() > 0) { if (hasValue) builder.append(", "); builder.append(district); hasValue = true; }
+        if (city.length() > 0) { if (hasValue) builder.append(", "); builder.append(city); hasValue = true; }
+
+        if (!hasValue) {
+            tvPreview.setText("📍 Chưa chọn địa điểm");
+        } else {
+            tvPreview.setText(builder.toString());
+        }
+    }
 }

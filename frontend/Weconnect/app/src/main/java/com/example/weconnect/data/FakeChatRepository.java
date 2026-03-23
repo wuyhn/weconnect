@@ -87,6 +87,35 @@ public class FakeChatRepository {
         ));
     }
 
+    public ChatRoom findDirectRoom(String participantName) {
+        for (ChatRoom room : chatRooms) {
+            if (ChatRoom.TYPE_DIRECT.equals(room.getType()) &&
+                    room.getTitle() != null &&
+                    room.getTitle().equalsIgnoreCase(participantName)) {
+                return room;
+            }
+        }
+        return null;
+    }
+
+    public ChatRoom getOrCreateDirectRoom(String participantName) {
+        ChatRoom existing = findDirectRoom(participantName);
+        if (existing != null) return existing;
+
+        // Create new direct room
+        ChatRoom newRoom = new ChatRoom(
+                "room_direct_" + participantName.toLowerCase().replaceAll("\\s+", "_"),
+                participantName,
+                ChatRoom.TYPE_DIRECT,
+                R.drawable.ic_user_placeholder,
+                true,
+                "",
+                new ArrayList<>()
+        );
+        chatRooms.add(newRoom);
+        return newRoom;
+    }
+
     private void seedRooms() {
         List<ChatMessage> coffeeMessages = new ArrayList<>();
         coffeeMessages.add(new ChatMessage("m1", "Minh Hoang", "I can join around 7pm.", "09:20", false));

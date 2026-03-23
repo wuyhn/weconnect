@@ -123,6 +123,41 @@
             tools:text="📍 Phường Phú Lương, Hà Đông, Hà Nội"
             tools:visibility="visible" />
 
+        <!-- Time Range & Countdown -->
+        <LinearLayout
+            android:id="@+id/layoutTimeRange"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <TextView
+                android:id="@+id/post_item_date_range"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                tools:text="📅 25/03 - 28/03" />
+
+            <TextView
+                android:id="@+id/post_item_countdown"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_selected_tag"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="⏰ Còn 2 giờ"
+                tools:visibility="visible" />
+        </LinearLayout>
+
         <!-- Post Image -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
@@ -146,7 +181,9 @@
 
         <!-- Group Action Buttons -->
         <!-- Group Action Buttons -->
+        <!-- Active: Join + Members buttons -->
         <LinearLayout
+            android:id="@+id/layoutActiveButtons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -165,7 +202,6 @@
                 android:textSize="14sp"
                 android:textStyle="bold"/>
 
-            <!-- ✅ FIX: Button Xem thành viên -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnViewMembers"
                 android:layout_width="0dp"
@@ -179,7 +215,19 @@
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:gravity="center"/>
-
         </LinearLayout>
+
+        <!-- Expired: Closed label -->
+        <TextView
+            android:id="@+id/tvExpiredLabel"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@color/background_soft"
+            android:gravity="center"
+            android:text="🔒 Da dong"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

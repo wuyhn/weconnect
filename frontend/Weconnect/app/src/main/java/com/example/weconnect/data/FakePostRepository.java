@@ -10,7 +10,7 @@ public class FakePostRepository {
 
     private static final long ONE_HOUR = 60L * 60L * 1000L;
     private static final long ONE_DAY = 24L * ONE_HOUR;
-    private static final String CURRENT_USERNAME = "Quynh Nguyen";
+    private static final String CURRENT_USERNAME = "Quỳnh Nguyễn";
 
     private static FakePostRepository instance;
 
@@ -57,8 +57,32 @@ public class FakePostRepository {
         allPosts.add(0, post);
     }
 
+    public boolean removePost(String id) {
+        java.util.Iterator<Post> iterator = allPosts.iterator();
+        while (iterator.hasNext()) {
+            Post post = iterator.next();
+            if (post.getId() != null && post.getId().equals(id)) {
+                iterator.remove();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String getCurrentUsername() {
         return CURRENT_USERNAME;
+    }
+
+    public List<Post> getActivePostsForUser(String username) {
+        List<Post> activePosts = new ArrayList<>();
+        for (Post post : allPosts) {
+            boolean sameUser = post.getUsername() != null
+                    && post.getUsername().equalsIgnoreCase(username);
+            if (sameUser && post.isActive()) {
+                activePosts.add(post);
+            }
+        }
+        return activePosts;
     }
 
     private void seedPosts() {
@@ -67,10 +91,10 @@ public class FakePostRepository {
         allPosts.add(new Post(
                 "1",
                 CURRENT_USERNAME,
-                "15 minutes ago",
-                "Anyone up for coffee and a quick planning session this evening?",
-                "Coffee meetup",
-                "Ha Dong, Ha Noi",
+                "15 phút trước",
+                "Ai muốn đi cà phê và lên kế hoạch buổi tối nay không?",
+                "Cà phê",
+                "Hà Đông, Hà Nội",
                 R.drawable.ic_user_placeholder,
                 0,
                 2,
@@ -85,11 +109,11 @@ public class FakePostRepository {
 
         allPosts.add(new Post(
                 "2",
-                "Minh Hoang",
-                "1 hour ago",
-                "Looking for teammates to join a design and code co-working activity.",
-                "Design and code",
-                "Cau Giay, Ha Noi",
+                "Minh Hoàng",
+                "1 giờ trước",
+                "Tìm đồng đội tham gia hoạt động lập trình và thiết kế cùng nhau.",
+                "Lập trình",
+                "Cầu Giấy, Hà Nội",
                 R.drawable.ic_user_placeholder,
                 R.drawable.ic_launcher_background,
                 4,
@@ -105,10 +129,10 @@ public class FakePostRepository {
         allPosts.add(new Post(
                 "3",
                 "Lan Anh",
-                "3 hours ago",
-                "Need a food buddy to explore a new noodle place this weekend.",
-                "Food trip",
-                "Thu Duc, Ho Chi Minh City",
+                "3 giờ trước",
+                "Cần bạn ăn uống để khám phá quán phở mới cuối tuần này.",
+                "Ẩm thực",
+                "Thủ Đức, TP.HCM",
                 R.drawable.ic_user_placeholder,
                 0,
                 3,
@@ -124,10 +148,10 @@ public class FakePostRepository {
         allPosts.add(new Post(
                 "4",
                 CURRENT_USERNAME,
-                "2 days ago",
-                "Morning badminton session completed. Thanks everyone for joining.",
-                "Badminton",
-                "Thanh Xuan, Ha Noi",
+                "2 ngày trước",
+                "Buổi đánh cầu lông sáng nay hoàn thành. Cảm ơn mọi người đã tham gia.",
+                "Cầu lông",
+                "Thanh Xuân, Hà Nội",
                 R.drawable.ic_user_placeholder,
                 0,
                 6,

@@ -2,21 +2,26 @@ package com.example.weconnect.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
+import com.example.weconnect.adapters.PostAdapter;
 import com.example.weconnect.adapters.UserReviewAdapter;
 import com.example.weconnect.data.FakePostRepository;
 import com.example.weconnect.data.FakeSocialRepository;
 import com.example.weconnect.models.UserProfile;
+import com.example.weconnect.models.Post;
 import com.example.weconnect.models.UserReview;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -28,16 +33,27 @@ import java.util.List;
 public class UserProfileActivity extends AppCompatActivity {
 
     private ImageView ivBackUserProfile;
+    private ImageView ivMenuProfile;
     private ImageView ivUserProfileAvatar;
     private TextView tvUserProfileName;
     private TextView tvUserReputation;
     private TextView tvUserAverageRating;
     private MaterialButton btnAddFriend;
-    private MaterialButton btnToggleBlock;
-    private MaterialButton btnReportUser;
+    private MaterialButton btnMessage;
     private MaterialButton btnViewArchive;
+    private LinearLayout layoutSocialButtons;
+    private TextView tvFriendCount;
     private RecyclerView rvUserReviews;
     private ChipGroup chipGroupUserInterests;
+    private View footerNavigationProfile;
+
+    private DrawerLayout drawerLayoutProfile;
+    private LinearLayout menuEditProfile;
+    private LinearLayout menuChangePassword;
+    private LinearLayout menuDeleteAccount;
+
+    private RecyclerView rvActivePostsProfile;
+    private TextView tvNoActivePosts;
 
     private String username;
     private FakeSocialRepository socialRepository;
@@ -52,77 +68,142 @@ public class UserProfileActivity extends AppCompatActivity {
         bindFakeUserProfile();
         setupClickListeners();
         bindSocialState();
+        setupDrawerMenu();
+        bindActivePosts();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh state khi quay lại (vd: sau khi chấp nhận kết bạn từ thông báo)
+        bindSocialState();
     }
 
     private void initViews() {
         ivBackUserProfile = findViewById(R.id.ivBackUserProfile);
+        ivMenuProfile = findViewById(R.id.ivMenuProfile);
         ivUserProfileAvatar = findViewById(R.id.ivUserProfileAvatar);
         tvUserProfileName = findViewById(R.id.tvUserProfileName);
         tvUserReputation = findViewById(R.id.tvUserReputation);
         tvUserAverageRating = findViewById(R.id.tvUserAverageRating);
         btnAddFriend = findViewById(R.id.btnAddFriend);
-        btnToggleBlock = findViewById(R.id.btnToggleBlock);
-        btnReportUser = findViewById(R.id.btnReportUser);
+        btnMessage = findViewById(R.id.btnMessage);
         btnViewArchive = findViewById(R.id.btnViewArchive);
+        layoutSocialButtons = findViewById(R.id.layoutSocialButtons);
+        tvFriendCount = findViewById(R.id.tvFriendCount);
         rvUserReviews = findViewById(R.id.rvUserReviews);
         chipGroupUserInterests = findViewById(R.id.chipGroupUserInterests);
+        footerNavigationProfile = findViewById(R.id.footerNavigationProfile);
+
+        drawerLayoutProfile = findViewById(R.id.drawerLayoutProfile);
+        menuEditProfile = findViewById(R.id.menuEditProfile);
+        menuChangePassword = findViewById(R.id.menuChangePassword);
+        menuDeleteAccount = findViewById(R.id.menuDeleteAccount);
+
+        rvActivePostsProfile = findViewById(R.id.rvActivePostsProfile);
+        tvNoActivePosts = findViewById(R.id.tvNoActivePosts);
     }
 
     private void setupClickListeners() {
         ivBackUserProfile.setOnClickListener(v -> finish());
-
-        btnAddFriend.setOnClickListener(v -> {
-            socialRepository.toggleFriend(username);
-            bindSocialState();
-            FakeSocialRepository.SocialState state = socialRepository.getState(username);
-            Toast.makeText(this, state.isFriend() ? "Da ket ban" : "Da huy ket ban", Toast.LENGTH_SHORT).show();
-        });
-
-        btnToggleBlock.setOnClickListener(v -> {
-            socialRepository.toggleBlocked(username);
-            bindSocialState();
-            FakeSocialRepository.SocialState state = socialRepository.getState(username);
-            Toast.makeText(this, state.isBlocked() ? "Da chan nguoi dung" : "Da bo chan nguoi dung", Toast.LENGTH_SHORT).show();
-        });
-
-        btnReportUser.setOnClickListener(v -> showReportDialog());
 
         btnViewArchive.setOnClickListener(v -> {
             Intent intent = new Intent(this, ArchivePostsActivity.class);
             intent.putExtra("username", tvUserProfileName.getText().toString());
             startActivity(intent);
         });
+
+        // Bottom navigation click listeners
+        View btnHome = findViewById(R.id.btnHomeProfile);
+        View btnMessages = findViewById(R.id.btnMessagesProfile);
+        View btnNotifications = findViewById(R.id.btnNotificationsProfile);
+
+        if (btnHome != null) {
+            btnHome.setOnClickListener(v -> {
+                Intent intent = new Intent(this, MainActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
+            });
+        }
+        if (btnMessages != null) {
+            btnMessages.setOnClickListener(v -> {
+                Toast.makeText(this, "Tin nhắn", Toast.LENGTH_SHORT).show();
+            });
+        }
+        if (btnNotifications != null) {
+            btnNotifications.setOnClickListener(v -> {
+                startActivity(new Intent(this, NotificationsActivity.class));
+            });
+        }
+    }
+
+    private void setupDrawerMenu() {
+        drawerLayoutProfile.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+
+        ivMenuProfile.setOnClickListener(v ->
+                drawerLayoutProfile.openDrawer(Gravity.END)
+        );
+
+        menuEditProfile.setOnClickListener(v -> {
+            drawerLayoutProfile.closeDrawer(Gravity.END);
+            startActivity(new Intent(this, EditProfileActivity.class));
+        });
+
+        menuChangePassword.setOnClickListener(v -> {
+            drawerLayoutProfile.closeDrawer(Gravity.END);
+            startActivity(new Intent(this, ChangePasswordActivity.class));
+        });
+
+        menuDeleteAccount.setOnClickListener(v -> {
+            drawerLayoutProfile.closeDrawer(Gravity.END);
+            showDeleteAccountDialog();
+        });
+    }
+
+    private void showDeleteAccountDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Xoá tài khoản")
+                .setMessage("Bạn có chắc chắn muốn xoá tài khoản? Hành động này không thể hoàn tác.")
+                .setPositiveButton("Xoá", (dialog, which) -> {
+                    Toast.makeText(this, "Đã gửi yêu cầu xoá tài khoản", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Huỷ", null)
+                .show();
     }
 
     private void bindFakeUserProfile() {
         username = getIntent().getStringExtra("username");
         if (username == null || username.isEmpty()) {
-            username = FakePostRepository.getInstance().getCurrentUsername();
+            username = socialRepository.getCurrentUsername();
         }
 
         List<String> interestTags = new ArrayList<>();
 
-        if ("Quynh Nguyen".equalsIgnoreCase(username)) {
-            interestTags.add("Coffee meetup");
-            interestTags.add("Gaming");
-            interestTags.add("Movies");
-        } else if ("Minh Hoang".equalsIgnoreCase(username)) {
-            interestTags.add("Football");
-            interestTags.add("Badminton");
-            interestTags.add("Running");
+        if (socialRepository.getCurrentUsername().equalsIgnoreCase(username)) {
+            interestTags.add("Cà phê");
+            interestTags.add("Chơi game");
+            interestTags.add("Xem phim");
+        } else if ("Minh Hoàng".equalsIgnoreCase(username)) {
+            interestTags.add("Đá bóng");
+            interestTags.add("Cầu lông");
+            interestTags.add("Chạy bộ");
         } else if ("Lan Anh".equalsIgnoreCase(username)) {
-            interestTags.add("Study group");
-            interestTags.add("English club");
-            interestTags.add("Coffee meetup");
+            interestTags.add("Học nhóm");
+            interestTags.add("Câu lạc bộ tiếng Anh");
+            interestTags.add("Cà phê");
+        } else if ("Thu Hương".equalsIgnoreCase(username)) {
+            interestTags.add("Yoga");
+            interestTags.add("Nấu ăn");
+            interestTags.add("Du lịch");
         } else {
-            interestTags.add("Coffee meetup");
-            interestTags.add("Design and code");
+            interestTags.add("Cà phê");
+            interestTags.add("Lập trình");
         }
 
         List<UserReview> reviews = new ArrayList<>();
-        reviews.add(new UserReview("Minh Hoang", 4.5f, "Friendly and easy to coordinate with."));
-        reviews.add(new UserReview("Lan Anh", 5.0f, "Very active and keeps the group motivated."));
-        reviews.add(new UserReview("Hai Dang", 4.0f, "Polite and shows up on time."));
+        reviews.add(new UserReview("Minh Hoàng", 4.5f, "Thân thiện, dễ phối hợp."));
+        reviews.add(new UserReview("Lan Anh", 5.0f, "Rất năng động, truyền cảm hứng cho nhóm."));
+        reviews.add(new UserReview("Hải Đăng", 4.0f, "Lịch sự, đúng giờ."));
 
         UserProfile userProfile = new UserProfile(
                 username,
@@ -135,8 +216,8 @@ public class UserProfileActivity extends AppCompatActivity {
 
         ivUserProfileAvatar.setImageResource(userProfile.getAvatarResId());
         tvUserProfileName.setText(userProfile.getUsername());
-        tvUserReputation.setText("Uy tin: " + userProfile.getReputationScore());
-        tvUserAverageRating.setText("Rating: " + userProfile.getAverageRating());
+        tvUserReputation.setText(String.valueOf(userProfile.getReputationScore()));
+        tvUserAverageRating.setText(String.valueOf(userProfile.getAverageRating()));
         chipGroupUserInterests.removeAllViews();
 
         for (String tag : userProfile.getInterestTags()) {
@@ -157,49 +238,118 @@ public class UserProfileActivity extends AppCompatActivity {
         rvUserReviews.setAdapter(new UserReviewAdapter(userProfile.getReviews()));
     }
 
+    private void bindActivePosts() {
+        List<Post> activePosts = FakePostRepository.getInstance().getActivePostsForUser(username);
+
+        if (activePosts.isEmpty()) {
+            tvNoActivePosts.setVisibility(View.VISIBLE);
+            rvActivePostsProfile.setVisibility(View.GONE);
+        } else {
+            tvNoActivePosts.setVisibility(View.GONE);
+            rvActivePostsProfile.setVisibility(View.VISIBLE);
+            rvActivePostsProfile.setLayoutManager(new LinearLayoutManager(this));
+            rvActivePostsProfile.setAdapter(new PostAdapter(this, activePosts));
+        }
+    }
+
     private void bindSocialState() {
         FakeSocialRepository.SocialState state = socialRepository.getState(username);
 
         if (state.isSelfProfile()) {
-            btnAddFriend.setText("Day la ho so cua ban");
-            btnAddFriend.setEnabled(false);
-            btnAddFriend.setAlpha(0.6f);
-            btnToggleBlock.setVisibility(View.GONE);
-            btnReportUser.setVisibility(View.GONE);
+            // Hồ sơ của mình: ẩn close, hiện menu ☰, hiện bạn bè + kho lưu trữ
+            ivBackUserProfile.setVisibility(View.GONE);
+            ivMenuProfile.setVisibility(View.VISIBLE);
+            tvFriendCount.setVisibility(View.VISIBLE);
+            tvFriendCount.setText("👥 Bạn bè: " + socialRepository.getFriendCount());
+            layoutSocialButtons.setVisibility(View.GONE);
+            btnViewArchive.setVisibility(View.VISIBLE);
+            ivMenuProfile.setVisibility(View.VISIBLE);
+            footerNavigationProfile.setVisibility(View.VISIBLE);
             return;
         }
 
-        btnToggleBlock.setVisibility(View.VISIBLE);
-        btnReportUser.setVisibility(View.VISIBLE);
-        btnAddFriend.setEnabled(!state.isBlocked());
-        btnAddFriend.setAlpha(state.isBlocked() ? 0.6f : 1.0f);
+        // Hồ sơ người khác: hiện close, ẩn menu
+        ivBackUserProfile.setVisibility(View.VISIBLE);
+        ivMenuProfile.setVisibility(View.GONE);
+        tvFriendCount.setVisibility(View.GONE);
+        btnViewArchive.setVisibility(View.GONE);
+        layoutSocialButtons.setVisibility(View.VISIBLE);
+        footerNavigationProfile.setVisibility(View.GONE);
 
-        if (state.isBlocked()) {
-            btnAddFriend.setText("Bi chan");
-            btnToggleBlock.setText("Bo chan");
-        } else if (state.isFriend()) {
-            btnAddFriend.setText("Ban be");
-            btnToggleBlock.setText("Chan");
-        } else {
-            btnAddFriend.setText("Ket ban");
-            btnToggleBlock.setText("Chan");
+        FakeSocialRepository.FriendStatus status = state.getFriendStatus();
+
+        switch (status) {
+            case BLOCKED:
+                btnAddFriend.setText("Đã chặn");
+                btnAddFriend.setEnabled(false);
+                btnAddFriend.setAlpha(0.5f);
+                btnMessage.setVisibility(View.GONE);
+                break;
+
+            case FRIEND:
+                btnAddFriend.setText("Bạn bè");
+                btnAddFriend.setEnabled(true);
+                btnAddFriend.setAlpha(1.0f);
+                btnMessage.setVisibility(View.VISIBLE);
+
+                btnAddFriend.setOnClickListener(v -> showFriendOptionsMenu());
+                btnMessage.setOnClickListener(v -> {
+                    Intent intent = new Intent(this, ConversationActivity.class);
+                    intent.putExtra("chat_name", username);
+                    startActivity(intent);
+                });
+                break;
+
+            case PENDING_SENT:
+                btnAddFriend.setText("Đã gửi lời mời");
+                btnAddFriend.setEnabled(false);
+                btnAddFriend.setAlpha(0.6f);
+                btnMessage.setVisibility(View.GONE);
+                break;
+
+            case PENDING_RECEIVED:
+                btnAddFriend.setText("Chấp nhận kết bạn");
+                btnAddFriend.setEnabled(true);
+                btnAddFriend.setAlpha(1.0f);
+                btnMessage.setVisibility(View.GONE);
+
+                btnAddFriend.setOnClickListener(v -> {
+                    socialRepository.acceptFriendRequest(username);
+                    bindSocialState();
+                    Toast.makeText(this, "Đã chấp nhận kết bạn!", Toast.LENGTH_SHORT).show();
+                });
+                break;
+
+            default: // NONE
+                btnAddFriend.setText("+ Thêm bạn bè");
+                btnAddFriend.setEnabled(true);
+                btnAddFriend.setAlpha(1.0f);
+                btnMessage.setVisibility(View.GONE);
+
+                btnAddFriend.setOnClickListener(v -> {
+                    socialRepository.sendFriendRequest(username);
+                    bindSocialState();
+                    Toast.makeText(this, "Đã gửi lời mời kết bạn", Toast.LENGTH_SHORT).show();
+                });
+                break;
         }
     }
 
-    private void showReportDialog() {
-        String[] reasons = new String[] {
-                "Hanh vi thieu ton trong",
-                "Spam hoac lam phien",
-                "Thong tin gia mao",
-                "Noi dung khong phu hop"
-        };
-
+    private void showFriendOptionsMenu() {
+        String[] items = {"Huỷ kết bạn", "Chặn người dùng"};
         new AlertDialog.Builder(this)
-                .setTitle("Bao cao nguoi dung")
-                .setItems(reasons, (dialog, which) ->
-                        Toast.makeText(this, "Da gui bao cao: " + reasons[which], Toast.LENGTH_SHORT).show()
-                )
-                .setNegativeButton("Huy", null)
+                .setTitle("Tuỳ chọn")
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) {
+                        socialRepository.unfriend(username);
+                        bindSocialState();
+                        Toast.makeText(this, "Đã huỷ kết bạn", Toast.LENGTH_SHORT).show();
+                    } else {
+                        socialRepository.blockUser(username);
+                        bindSocialState();
+                        Toast.makeText(this, "Đã chặn người dùng", Toast.LENGTH_SHORT).show();
+                    }
+                })
                 .show();
     }
 }
