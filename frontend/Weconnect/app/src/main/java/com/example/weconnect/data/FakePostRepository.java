@@ -15,6 +15,15 @@ public class FakePostRepository {
     private static FakePostRepository instance;
 
     private final List<Post> allPosts = new ArrayList<>();
+    private List<String> userInterests = new ArrayList<>();
+
+    public void setUserInterests(List<String> interests) {
+        this.userInterests = new ArrayList<>(interests);
+    }
+
+    public List<String> getUserInterests() {
+        return new ArrayList<>(userInterests);
+    }
 
     private FakePostRepository() {
         seedPosts();

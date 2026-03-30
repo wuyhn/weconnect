@@ -76,6 +76,10 @@ public class MainActivity extends AppCompatActivity {
                                 endTime,
                                 false
                         );
+                        String imageUri = data.getStringExtra("post_image_uri");
+                        if (imageUri != null) {
+                            newPost.setPostImageUri(imageUri);
+                        }
                         postRepository.addPost(newPost);
                         refreshPosts();
                         rvPosts.smoothScrollToPosition(0);
@@ -93,6 +97,14 @@ public class MainActivity extends AppCompatActivity {
         btnProfile = findViewById(R.id.btnProfile);
         rvPosts = findViewById(R.id.rvPosts);
         statusHeader = findViewById(R.id.statusHeader);
+
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefreshLayout =
+                findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setColorSchemeColors(0xFFFF4D6D);
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            refreshPosts();
+            swipeRefreshLayout.postDelayed(() -> swipeRefreshLayout.setRefreshing(false), 1000);
+        });
     }
 
     private void setupClickListeners() {

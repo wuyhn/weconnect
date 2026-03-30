@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.net.Uri;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -62,11 +63,15 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.ivAvatar.setOnClickListener(v -> openUserProfile(post.getUsername()));
         holder.tvUsername.setOnClickListener(v -> openUserProfile(post.getUsername()));
 
-        if (post.getImageResId() != 0) {
-            holder.ivPostImage.setVisibility(View.VISIBLE);
+        // Post image: URI from gallery or resource id
+        if (post.getPostImageUri() != null && !post.getPostImageUri().isEmpty()) {
+            holder.cvPostImage.setVisibility(View.VISIBLE);
+            holder.ivPostImage.setImageURI(Uri.parse(post.getPostImageUri()));
+        } else if (post.getImageResId() != 0) {
+            holder.cvPostImage.setVisibility(View.VISIBLE);
             holder.ivPostImage.setImageResource(post.getImageResId());
         } else {
-            holder.ivPostImage.setVisibility(View.GONE);
+            holder.cvPostImage.setVisibility(View.GONE);
         }
 
         if (post.getInterestTag() != null && !post.getInterestTag().isEmpty()) {
@@ -342,7 +347,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         reasonCard.setCardBackgroundColor(context.getResources().getColor(R.color.card_surface, null));
         reasonCard.setRadius(48f);
         reasonCard.setCardElevation(4f);
-        reasonCard.setStrokeWidth(0);
+        reasonCard.setStrokeWidth(3);
+        reasonCard.setStrokeColor(context.getResources().getColor(R.color.primary_pink, null));
 
         RadioGroup radioGroup = new RadioGroup(context);
         radioGroup.setPadding(40, 24, 40, 24);
@@ -376,7 +382,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         inputCard.setCardBackgroundColor(context.getResources().getColor(R.color.card_surface, null));
         inputCard.setRadius(48f);
         inputCard.setCardElevation(4f);
-        inputCard.setStrokeWidth(0);
+        inputCard.setStrokeWidth(3);
+        inputCard.setStrokeColor(context.getResources().getColor(R.color.primary_pink, null));
 
         EditText etCustomReason = new EditText(context);
         etCustomReason.setHint("Mô tả chi tiết (không bắt buộc)");
@@ -384,6 +391,10 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         etCustomReason.setPadding(40, 28, 40, 28);
         etCustomReason.setBackground(null);
         etCustomReason.setTextSize(14);
+        etCustomReason.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        etCustomReason.setFocusable(true);
+        etCustomReason.setFocusableInTouchMode(true);
+        etCustomReason.setClickable(true);
         inputCard.addView(etCustomReason);
         root.addView(inputCard);
 
@@ -465,15 +476,33 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             // Own post: don't show join button, only show members
             holder.btnJoinGroup.setVisibility(View.GONE);
         } else if (post.isJoined()) {
-            holder.btnJoinGroup.setVisibility(View.GONE);
-        } else {
+            // Already joined: show "Mở đoạn chat" to open conversation
             holder.btnJoinGroup.setVisibility(View.VISIBLE);
-            holder.btnJoinGroup.setText("Tham gia nhóm");
+            holder.btnJoinGroup.setText("💬 Mở đoạn chat");
             holder.btnJoinGroup.setEnabled(true);
             holder.btnJoinGroup.setAlpha(1.0f);
             holder.btnJoinGroup.setOnClickListener(v -> {
+                Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
+                intent.putExtra("chat_name", post.getUsername());
+                context.startActivity(intent);
+            });
+        } else if (post.isPendingApproval()) {
+            // Pending approval: show dimmed "Đang chờ duyệt"
+            holder.btnJoinGroup.setVisibility(View.VISIBLE);
+            holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
+            holder.btnJoinGroup.setEnabled(false);
+            holder.btnJoinGroup.setAlpha(0.6f);
+            holder.btnJoinGroup.setOnClickListener(null);
+        } else {
+            // Not joined: show active "Tham gia" button
+            holder.btnJoinGroup.setVisibility(View.VISIBLE);
+            holder.btnJoinGroup.setText("Tham gia");
+            holder.btnJoinGroup.setEnabled(true);
+            holder.btnJoinGroup.setAlpha(1.0f);
+            holder.btnJoinGroup.setOnClickListener(v -> {
+                post.setPendingApproval(true);
                 Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
-                holder.btnJoinGroup.setText("Đang chờ duyệt");
+                holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
                 holder.btnJoinGroup.setEnabled(false);
                 holder.btnJoinGroup.setAlpha(0.6f);
             });
@@ -511,6 +540,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
     public static class PostViewHolder extends RecyclerView.ViewHolder {
         ImageView ivAvatar, ivPostImage, ivPostMenu;
+        View cvPostImage;
         TextView tvUsername, tvTime, tvContent;
         TextView btnJoinGroup, btnViewMembers;
         TextView tvTag, tvLocation;
@@ -523,7 +553,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvUsername = itemView.findViewById(R.id.post_item_username);
             tvTime = itemView.findViewById(R.id.post_item_time);
             tvContent = itemView.findViewById(R.id.post_item_content);
-            ivPostImage = itemView.findViewById(R.id.post_item_image);
+            cvPostImage = itemView.findViewById(R.id.cvPostImage);
+            ivPostImage = itemView.findViewById(R.id.ivPostImage);
             btnJoinGroup = itemView.findViewById(R.id.btnJoinGroup);
             btnViewMembers = itemView.findViewById(R.id.btnViewMembers);
             tvTag = itemView.findViewById(R.id.post_item_tag);

@@ -51,7 +51,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         if (viewType == TYPE_HEADER) {
             TextView tv = new TextView(context);
             tv.setTextSize(15);
-            tv.setTextColor(context.getResources().getColor(R.color.primary_pink, null));
+            tv.setTextColor(context.getResources().getColor(R.color.text_primary, null));
             tv.setPadding(56, 32, 20, 8);
             tv.setTypeface(null, android.graphics.Typeface.BOLD);
             return new HeaderViewHolder(tv);
@@ -120,7 +120,14 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             });
         }
 
-        item.setRead(true);
+        // Unread indicator
+        if (!item.isRead()) {
+            holder.viewUnreadDot.setVisibility(View.VISIBLE);
+            holder.tvMessage.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            holder.viewUnreadDot.setVisibility(View.GONE);
+            holder.tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
+        }
     }
 
     private String formatTime(long timestamp) {
@@ -188,6 +195,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     static class NotifViewHolder extends RecyclerView.ViewHolder {
         ImageView ivAvatar;
         TextView tvMessage, tvTime, tvActioned;
+        View viewUnreadDot;
         LinearLayout layoutActions;
         MaterialButton btnAccept, btnDecline;
 
@@ -197,6 +205,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             tvMessage = itemView.findViewById(R.id.tvNotifMessage);
             tvTime = itemView.findViewById(R.id.tvNotifTime);
             tvActioned = itemView.findViewById(R.id.tvNotifActioned);
+            viewUnreadDot = itemView.findViewById(R.id.viewUnreadDot);
             layoutActions = itemView.findViewById(R.id.layoutNotifActions);
             btnAccept = itemView.findViewById(R.id.btnNotifAccept);
             btnDecline = itemView.findViewById(R.id.btnNotifDecline);

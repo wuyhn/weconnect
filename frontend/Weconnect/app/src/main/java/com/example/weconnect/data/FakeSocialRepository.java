@@ -151,6 +151,16 @@ public class FakeSocialRepository {
         return friends;
     }
 
+    public List<String> getBlockedUsers() {
+        List<String> blocked = new ArrayList<>();
+        for (Map.Entry<String, SocialState> entry : stateMap.entrySet()) {
+            if (!entry.getValue().isSelfProfile() && entry.getValue().isBlocked()) {
+                blocked.add(entry.getKey());
+            }
+        }
+        return blocked;
+    }
+
     private void seed() {
         stateMap.put(currentUsername, new SocialState(true, FriendStatus.NONE));
         stateMap.put("Minh Hoàng", new SocialState(false, FriendStatus.FRIEND));

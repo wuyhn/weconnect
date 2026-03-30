@@ -3,6 +3,8 @@ package com.example.weconnect.activities;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,6 +42,7 @@ public class SearchActivity extends AppCompatActivity {
         setupRepository();
         setupClickListeners();
         setupSearchListener();
+        autoFocusSearch();
     }
 
     private void initViews() {
@@ -63,6 +66,11 @@ public class SearchActivity extends AppCompatActivity {
         ivBackSearch.setOnClickListener(v -> finish());
     }
 
+    private void autoFocusSearch() {
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        etSearch.requestFocus();
+    }
+
     private void setupSearchListener() {
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
@@ -75,6 +83,14 @@ public class SearchActivity extends AppCompatActivity {
 
             @Override
             public void afterTextChanged(Editable s) { }
+        });
+
+        etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                performSearch(etSearch.getText().toString());
+                return true;
+            }
+            return false;
         });
     }
 

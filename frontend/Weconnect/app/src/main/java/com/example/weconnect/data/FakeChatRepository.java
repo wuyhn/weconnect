@@ -5,6 +5,7 @@ import com.example.weconnect.models.ChatMessage;
 import com.example.weconnect.models.ChatRoom;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class FakeChatRepository {
@@ -45,7 +46,17 @@ public class FakeChatRepository {
         String normalized = query == null ? "" : query.trim().toLowerCase();
 
         for (ChatRoom room : chatRooms) {
-            boolean matchesType = type == null || type.equals(room.getType());
+            boolean matchesType;
+            if (type == null) {
+                matchesType = true;
+            } else if (ChatRoom.TYPE_DIRECT.equals(type)) {
+                // "Liên hệ" tab shows both direct and friend_group
+                matchesType = ChatRoom.TYPE_DIRECT.equals(room.getType())
+                        || ChatRoom.TYPE_FRIEND_GROUP.equals(room.getType());
+            } else {
+                matchesType = type.equals(room.getType());
+            }
+
             if (!matchesType) {
                 continue;
             }
@@ -102,7 +113,7 @@ public class FakeChatRepository {
         ChatRoom existing = findDirectRoom(participantName);
         if (existing != null) return existing;
 
-        // Create new direct room
+        String currentUser = FakePostRepository.getInstance().getCurrentUsername();
         ChatRoom newRoom = new ChatRoom(
                 "room_direct_" + participantName.toLowerCase().replaceAll("\\s+", "_"),
                 participantName,
@@ -110,25 +121,75 @@ public class FakeChatRepository {
                 R.drawable.ic_user_placeholder,
                 true,
                 "",
+                new ArrayList<>(),
+                currentUser,
+                new ArrayList<>(Arrays.asList(currentUser, participantName)),
                 new ArrayList<>()
         );
         chatRooms.add(newRoom);
         return newRoom;
     }
 
+    public ChatRoom createGroupChat(String title, List<String> members) {
+        // Check for existing group chat with same title
+        ChatRoom existing = findGroupRoomByTitle(title);
+        if (existing != null) {
+            return existing;
+        }
+
+        String currentUser = FakePostRepository.getInstance().getCurrentUsername();
+        List<String> allMembers = new ArrayList<>();
+        allMembers.add(currentUser);
+        for (String member : members) {
+            if (!member.equalsIgnoreCase(currentUser)) {
+                allMembers.add(member);
+            }
+        }
+
+        String roomId = "room_friend_group_" + System.currentTimeMillis();
+        ChatRoom newRoom = new ChatRoom(
+                roomId,
+                title,
+                ChatRoom.TYPE_FRIEND_GROUP,
+                R.drawable.ic_user_placeholder,
+                true,
+                "",
+                new ArrayList<>(),
+                currentUser,
+                allMembers,
+                new ArrayList<>()
+        );
+        chatRooms.add(0, newRoom);
+        return newRoom;
+    }
+
+    public ChatRoom findGroupRoomByTitle(String title) {
+        for (ChatRoom room : chatRooms) {
+            if ((ChatRoom.TYPE_GROUP.equals(room.getType()) || ChatRoom.TYPE_FRIEND_GROUP.equals(room.getType())) &&
+                    room.getTitle() != null &&
+                    room.getTitle().equalsIgnoreCase(title)) {
+                return room;
+            }
+        }
+        return null;
+    }
+
     private void seedRooms() {
+        String currentUser = "Quỳnh Nguyễn";
+
         List<ChatMessage> coffeeMessages = new ArrayList<>();
-        coffeeMessages.add(new ChatMessage("m1", "Minh Hoang", "I can join around 7pm.", "09:20", false));
-        coffeeMessages.add(new ChatMessage("m2", "Quynh Nguyen", "Great, I booked a table for 4.", "09:23", true));
+        coffeeMessages.add(new ChatMessage("m1", "Minh Hoàng", "I can join around 7pm.", "09:20", false));
+        coffeeMessages.add(new ChatMessage("m2", currentUser, "Great, I booked a table for 4.", "09:23", true));
 
         List<ChatMessage> codeMessages = new ArrayList<>();
         codeMessages.add(new ChatMessage("m3", "Lan Anh", "Let's split the UI tasks first.", "Yesterday", false));
-        codeMessages.add(new ChatMessage("m4", "Quynh Nguyen", "I will handle the feed and profile flow.", "Yesterday", true));
+        codeMessages.add(new ChatMessage("m4", currentUser, "I will handle the feed and profile flow.", "Yesterday", true));
 
         List<ChatMessage> directMessages = new ArrayList<>();
-        directMessages.add(new ChatMessage("m5", "Minh Hoang", "Do you want to review the mockup tonight?", "10:12", false));
-        directMessages.add(new ChatMessage("m6", "Quynh Nguyen", "Yes, send it over and I will check it.", "10:15", true));
+        directMessages.add(new ChatMessage("m5", "Minh Hoàng", "Do you want to review the mockup tonight?", "10:12", false));
+        directMessages.add(new ChatMessage("m6", currentUser, "Yes, send it over and I will check it.", "10:15", true));
 
+        // Activity group chat (post-based) - owner is the post creator
         chatRooms.add(new ChatRoom(
                 "room_group_coffee",
                 "Coffee Meetup",
@@ -136,27 +197,38 @@ public class FakeChatRepository {
                 R.drawable.ic_user_placeholder,
                 true,
                 "",
-                coffeeMessages
+                coffeeMessages,
+                currentUser,
+                new ArrayList<>(Arrays.asList(currentUser, "Minh Hoàng")),
+                new ArrayList<>(Arrays.asList("Lan Anh"))
         ));
 
+        // Activity group chat - owner is someone else
         chatRooms.add(new ChatRoom(
                 "room_group_code",
                 "Design and Code Crew",
                 ChatRoom.TYPE_GROUP,
                 R.drawable.ic_user_placeholder,
                 false,
-                "Hoat dong 20 phut truoc",
-                codeMessages
+                "Hoạt động 20 phút trước",
+                codeMessages,
+                "Lan Anh",
+                new ArrayList<>(Arrays.asList("Lan Anh", currentUser)),
+                new ArrayList<>()
         ));
 
+        // Direct chat (friend DM)
         chatRooms.add(new ChatRoom(
                 "room_direct_minh",
-                "Minh Hoang",
+                "Minh Hoàng",
                 ChatRoom.TYPE_DIRECT,
                 R.drawable.ic_user_placeholder,
                 true,
                 "",
-                directMessages
+                directMessages,
+                currentUser,
+                new ArrayList<>(Arrays.asList(currentUser, "Minh Hoàng")),
+                new ArrayList<>()
         ));
     }
 }

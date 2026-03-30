@@ -32,8 +32,9 @@ public class UserReviewAdapter extends RecyclerView.Adapter<UserReviewAdapter.Us
     public void onBindViewHolder(@NonNull UserReviewViewHolder holder, int position) {
         UserReview review = reviewList.get(position);
         holder.tvReviewerName.setText(review.getReviewerName());
-        holder.tvReviewerRating.setText("⭐ " + review.getRating());
+        holder.tvReviewerRating.setText(review.getReputationLabel());
         holder.tvReviewerComment.setText(review.getComment());
+        holder.tvReviewActivity.setText("📌 " + review.getActivityName());
     }
 
     @Override
@@ -42,13 +43,14 @@ public class UserReviewAdapter extends RecyclerView.Adapter<UserReviewAdapter.Us
     }
 
     static class UserReviewViewHolder extends RecyclerView.ViewHolder {
-        TextView tvReviewerName, tvReviewerRating, tvReviewerComment;
+        TextView tvReviewerName, tvReviewerRating, tvReviewerComment, tvReviewActivity;
 
         public UserReviewViewHolder(@NonNull View itemView) {
             super(itemView);
             tvReviewerName = itemView.findViewById(R.id.tvReviewerName);
             tvReviewerRating = itemView.findViewById(R.id.tvReviewerRating);
             tvReviewerComment = itemView.findViewById(R.id.tvReviewerComment);
+            tvReviewActivity = itemView.findViewById(R.id.tvReviewActivity);
         }
     }
 }

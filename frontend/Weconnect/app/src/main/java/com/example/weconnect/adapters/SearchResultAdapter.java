@@ -4,16 +4,20 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.example.weconnect.activities.UserProfileActivity;
+import com.example.weconnect.activities.ParticipantsActivity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
+import com.example.weconnect.data.FakePostRepository;
+import com.example.weconnect.models.Post;
 import com.example.weconnect.models.SearchResultItem;
 import com.example.weconnect.activities.PostDetailActivity;
 import java.util.ArrayList;
@@ -23,9 +27,11 @@ public class SearchResultAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
         private final Context context;
         private final List<SearchResultItem> items = new ArrayList<>();
+        private final String currentUsername;
 
         public SearchResultAdapter(Context context) {
             this.context = context;
+            this.currentUsername = FakePostRepository.getInstance().getCurrentUsername();
         }
 
         public void submitList(List<SearchResultItem> newItems) {
@@ -72,19 +78,64 @@ public class SearchResultAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                 context.startActivity(intent);
             });
         } else if (holder instanceof PostViewHolder) {
-            ((PostViewHolder) holder).tvPostTitle.setText(item.getTitle());
+            PostViewHolder ph = (PostViewHolder) holder;
+            Post post = item.getPost();
+
+            ph.tvPostTitle.setText(item.getTitle());
 
             if (item.getSubtitle() != null && item.getSubtitle().length() > 0) {
-                ((PostViewHolder) holder).tvPostSubtitle.setVisibility(View.VISIBLE);
-                ((PostViewHolder) holder).tvPostSubtitle.setText(item.getSubtitle());
+                ph.tvPostSubtitle.setVisibility(View.VISIBLE);
+                ph.tvPostSubtitle.setText(item.getSubtitle());
             } else {
-                ((PostViewHolder) holder).tvPostSubtitle.setVisibility(View.GONE);
+                ph.tvPostSubtitle.setVisibility(View.GONE);
+            }
+
+            // Member count button
+            if (post != null) {
+                ph.btnMembers.setText("Thành viên: " + post.getMemberCount() + "/" + post.getMaxMembers());
+                ph.btnMembers.setOnClickListener(v -> {
+                    Intent intent = new Intent(context, ParticipantsActivity.class);
+                    intent.putExtra("post_id", post.getId());
+                    intent.putExtra("member_count", post.getMemberCount());
+                    intent.putExtra("max_members", post.getMaxMembers());
+                    context.startActivity(intent);
+                });
+
+                // Join status button
+                boolean isOwnPost = currentUsername.equalsIgnoreCase(post.getUsername());
+                if (isOwnPost) {
+                    ph.btnJoin.setVisibility(View.GONE);
+                } else if (post.isJoined()) {
+                    ph.btnJoin.setVisibility(View.VISIBLE);
+                    ph.btnJoin.setText("✅ Đã tham gia");
+                    ph.btnJoin.setEnabled(false);
+                    ph.btnJoin.setAlpha(0.5f);
+                } else if (post.isPendingApproval()) {
+                    ph.btnJoin.setVisibility(View.VISIBLE);
+                    ph.btnJoin.setText("⏳ Đang chờ duyệt");
+                    ph.btnJoin.setEnabled(false);
+                    ph.btnJoin.setAlpha(0.6f);
+                } else {
+                    ph.btnJoin.setVisibility(View.VISIBLE);
+                    ph.btnJoin.setText("Tham gia");
+                    ph.btnJoin.setEnabled(true);
+                    ph.btnJoin.setAlpha(1.0f);
+                    ph.btnJoin.setOnClickListener(v -> {
+                        post.setPendingApproval(true);
+                        Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
+                        ph.btnJoin.setText("⏳ Đang chờ duyệt");
+                        ph.btnJoin.setEnabled(false);
+                        ph.btnJoin.setAlpha(0.6f);
+                    });
+                }
             }
 
             holder.itemView.setOnClickListener(v -> {
-                Intent intent = new Intent(context, PostDetailActivity.class);
-                intent.putExtra("post", item.getPost());
-                context.startActivity(intent);
+                if (post != null) {
+                    Intent intent = new Intent(context, PostDetailActivity.class);
+                    intent.putExtra("post", post);
+                    context.startActivity(intent);
+                }
             });
         }
     }
@@ -117,11 +168,15 @@ public class SearchResultAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     static class PostViewHolder extends RecyclerView.ViewHolder {
         TextView tvPostTitle;
         TextView tvPostSubtitle;
+        TextView btnJoin;
+        TextView btnMembers;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
             tvPostTitle = itemView.findViewById(R.id.tvSearchPostTitle);
             tvPostSubtitle = itemView.findViewById(R.id.tvSearchPostSubtitle);
+            btnJoin = itemView.findViewById(R.id.btnSearchPostJoin);
+            btnMembers = itemView.findViewById(R.id.btnSearchPostMembers);
         }
     }
 }

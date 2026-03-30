@@ -150,6 +150,9 @@ public class CreatePostActivity extends AppCompatActivity {
         result.putExtra("post_max_members", participantLimit);
         result.putExtra("post_location", selectedLocation);
         result.putExtra("post_end_time", now + selectedDurationMillis);
+        if (selectedImageUri != null) {
+            result.putExtra("post_image_uri", selectedImageUri.toString());
+        }
         setResult(RESULT_OK, result);
         finish();
     }

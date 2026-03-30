@@ -95,6 +95,22 @@
             android:lineSpacingExtra="4dp"
             tools:text="Nội dung bài đăng sẽ hiển thị ở đây..." />
 
+        <!-- Post Image (user-uploaded) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cvPostImage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:visibility="gone"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp">
+            <ImageView
+                android:id="@+id/ivPostImage"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:scaleType="centerCrop" />
+        </androidx.cardview.widget.CardView>
+
         <TextView
             android:id="@+id/post_item_tag"
             android:layout_width="wrap_content"

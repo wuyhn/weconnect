@@ -13,6 +13,7 @@ public class Post implements java.io.Serializable {
     private int commentsCount;
     private int maxMembers;
     private boolean joined;
+    private boolean pendingApproval;
     private String location;
     private long startTimeMillis;
     private long endTimeMillis;
@@ -61,6 +62,7 @@ public class Post implements java.io.Serializable {
     public int getCommentsCount() { return commentsCount; }
     public int getMaxMembers() { return maxMembers; }
     public boolean isJoined() { return joined; }
+    public boolean isPendingApproval() { return pendingApproval; }
     public long getStartTimeMillis() { return startTimeMillis; }
     public long getEndTimeMillis() { return endTimeMillis; }
     public boolean isArchived() { return archived; }
@@ -81,8 +83,14 @@ public class Post implements java.io.Serializable {
     }
 
     public void setJoined(boolean joined) { this.joined = joined; }
+    public void setPendingApproval(boolean pendingApproval) { this.pendingApproval = pendingApproval; }
     public void setArchived(boolean archived) { this.archived = archived; }
     public void setContent(String content) { this.content = content; }
     public void setLocation(String location) { this.location = location; }
     public void setInterestTag(String tag) { this.interestTag = tag; }
+
+    // User-uploaded image URI (from gallery)
+    private String postImageUri;
+    public String getPostImageUri() { return postImageUri; }
+    public void setPostImageUri(String uri) { this.postImageUri = uri; }
 }

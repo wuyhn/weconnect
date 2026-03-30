@@ -111,17 +111,20 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
-            <FrameLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:background="@drawable/bg_chat_tabs_shell"
-                android:padding="6dp">
+                app:cardBackgroundColor="#FFF5EDE8"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
 
                 <com.google.android.material.tabs.TabLayout
                     android:id="@+id/tabChatType"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
+                    android:layout_margin="4dp"
                     app:tabBackground="@drawable/bg_chat_tab"
                     app:tabGravity="fill"
                     app:tabIndicatorHeight="0dp"
@@ -130,8 +133,9 @@
                     app:tabRippleColor="@android:color/transparent"
                     app:tabSelectedTextColor="@android:color/white"
                     app:tabTextAppearance="@style/TextAppearance.MaterialComponents.Button"
-                    app:tabTextColor="@color/text_secondary" />
-            </FrameLayout>
+                    app:tabTextColor="@color/text_secondary"
+                    app:tabMinWidth="0dp" />
+            </com.google.android.material.card.MaterialCardView>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvChats"

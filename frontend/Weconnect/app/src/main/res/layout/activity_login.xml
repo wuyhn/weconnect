@@ -127,7 +127,7 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="35dp" />
+                android:layout_height="20dp" />
 
             <Button
                 android:id="@+id/btnLogin"
@@ -146,11 +146,31 @@
     </androidx.cardview.widget.CardView>
 
     <TextView
-        android:id="@+id/tvRegister"
+        android:id="@+id/tvForgotPassword"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="20dp"
+        android:text="Quên mật khẩu?"
+        android:textColor="#E91E63"
+        android:textSize="14sp"
+        android:padding="6dp"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <View
+        android:layout_width="200dp"
+        android:layout_height="1dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
+        android:background="#E0E0E0" />
+
+    <TextView
+        android:id="@+id/tvRegister"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
         android:text="Chưa có tài khoản? Đăng ký ngay"
         android:textColor="#E91E63"
         android:textSize="15sp"

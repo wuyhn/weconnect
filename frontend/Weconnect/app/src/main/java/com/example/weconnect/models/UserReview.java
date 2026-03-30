@@ -4,12 +4,14 @@ import java.io.Serializable;
 
 public class UserReview implements Serializable {
     private String reviewerName;
-    private float rating;
+    private String activityName;
+    private String reputationLabel;
     private String comment;
 
-    public UserReview(String reviewerName, float rating, String comment) {
+    public UserReview(String reviewerName, String activityName, String reputationLabel, String comment) {
         this.reviewerName = reviewerName;
-        this.rating = rating;
+        this.activityName = activityName;
+        this.reputationLabel = reputationLabel;
         this.comment = comment;
     }
 
@@ -17,8 +19,12 @@ public class UserReview implements Serializable {
         return reviewerName;
     }
 
-    public float getRating() {
-        return rating;
+    public String getActivityName() {
+        return activityName;
+    }
+
+    public String getReputationLabel() {
+        return reputationLabel;
     }
 
     public String getComment() {

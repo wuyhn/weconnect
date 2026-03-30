@@ -41,7 +41,7 @@ public class FakeSearchDataSource implements SearchDataSource {
                             interestTag.contains(normalizedKeyword) ||
                             location.contains(normalizedKeyword);
 
-            if (isMatched) {
+            if (isMatched && post.isActive()) {
                 result.add(post);
             }
         }

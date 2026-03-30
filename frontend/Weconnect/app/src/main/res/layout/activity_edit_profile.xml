@@ -30,13 +30,13 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/primary_pink" />
+            app:tint="@color/text_primary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Chỉnh sửa hồ sơ"
-            android:textColor="@color/primary_pink"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -107,7 +107,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:text="Nhấn để đổi ảnh"
-                            android:textColor="@color/primary_pink"
+                            android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
                     </LinearLayout>
 
@@ -123,8 +123,8 @@
                         app:boxCornerRadiusBottomStart="16dp"
                         app:boxCornerRadiusTopEnd="16dp"
                         app:boxCornerRadiusTopStart="16dp"
-                        app:boxStrokeColor="@color/primary_pink"
-                        app:hintTextColor="@color/primary_pink">
+                        app:boxStrokeColor="@color/text_secondary"
+                        app:hintTextColor="@color/text_primary">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etDisplayName"
@@ -146,11 +146,11 @@
                         app:boxCornerRadiusBottomStart="16dp"
                         app:boxCornerRadiusTopEnd="16dp"
                         app:boxCornerRadiusTopStart="16dp"
-                        app:boxStrokeColor="@color/primary_pink"
-                        app:endIconDrawable="@drawable/ic_interests"
+                        app:boxStrokeColor="@color/text_secondary"
+                        app:endIconDrawable="@drawable/ic_calendar"
                         app:endIconMode="custom"
-                        app:endIconTint="@color/primary_pink"
-                        app:hintTextColor="@color/primary_pink">
+                        app:endIconTint="@color/text_secondary"
+                        app:hintTextColor="@color/text_primary">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etBirthDate"
@@ -275,10 +275,10 @@
                         app:boxCornerRadiusBottomStart="16dp"
                         app:boxCornerRadiusTopEnd="16dp"
                         app:boxCornerRadiusTopStart="16dp"
-                        app:boxStrokeColor="@color/primary_pink"
+                        app:boxStrokeColor="@color/text_secondary"
                         app:counterEnabled="true"
                         app:counterMaxLength="200"
-                        app:hintTextColor="@color/primary_pink">
+                        app:hintTextColor="@color/text_primary">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etBio"

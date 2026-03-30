@@ -90,9 +90,11 @@ public class RegisterActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<String> call, Response<String> response) {
                 if (response.isSuccessful()) {
-                    // KẾT QUẢ THẬT: Đã vào MySQL
-                    Toast.makeText(RegisterActivity.this, "Đăng ký thành công và đã lưu DB!", Toast.LENGTH_LONG).show();
-                    finish(); // Quay lại trang Login
+                                Toast.makeText(RegisterActivity.this, "Đăng ký thành công!", Toast.LENGTH_LONG).show();
+                                Intent intent = new Intent(RegisterActivity.this, OnboardingActivity.class);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                startActivity(intent);
+                                finish();
                 } else {
                     try {
                         String error = response.errorBody().string();
