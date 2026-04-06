@@ -368,8 +368,124 @@ public class CreatePostActivity extends AppCompatActivity {
 
     private void showTagDialog() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View view = getLayoutInflater().inflate(R.layout.layout_tag_interest, null);
-        dialog.setContentView(view);
+
+        // Lấy sở thích đã lưu từ SharedPreferences
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String savedInterests = prefs.getString("user_interests", "");
+
+        // Nếu chưa có sở thích → thông báo
+        if (savedInterests.isEmpty()) {
+            Toast.makeText(this, "Bạn chưa chọn sở thích! Vui lòng vào Onboarding để chọn.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String[] interests = savedInterests.split(",");
+
+        // Build layout
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(getResources().getColor(R.color.soft_beige, null));
+
+        // Header
+        LinearLayout headerRow = new LinearLayout(this);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        headerRow.setPadding(48, 40, 48, 24);
+
+        ImageView ivCloseTag = new ImageView(this);
+        ivCloseTag.setImageResource(R.drawable.ic_close);
+        ivCloseTag.setColorFilter(getResources().getColor(R.color.primary_pink, null));
+        ivCloseTag.setBackgroundResource(R.drawable.bg_action_icon_circle);
+        ivCloseTag.setPadding(28, 28, 28, 28);
+        ivCloseTag.setLayoutParams(new LinearLayout.LayoutParams(120, 120));
+        ivCloseTag.setOnClickListener(v -> dialog.dismiss());
+        headerRow.addView(ivCloseTag);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("Sở thích");
+        tvTitle.setTextSize(22);
+        tvTitle.setTextColor(getResources().getColor(R.color.primary_pink, null));
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvTitle.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams titleP = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        tvTitle.setLayoutParams(titleP);
+        headerRow.addView(tvTitle);
+
+        android.widget.Space spacer = new android.widget.Space(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(120, 120));
+        headerRow.addView(spacer);
+        root.addView(headerRow);
+
+        View div = new View(this);
+        div.setBackgroundColor(0xFFE8E4DE);
+        div.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2));
+        root.addView(div);
+
+        // Description
+        TextView tvDesc = new TextView(this);
+        tvDesc.setText("Chọn sở thích phù hợp cho bài viết của bạn");
+        tvDesc.setTextSize(14);
+        tvDesc.setTextColor(getResources().getColor(R.color.text_secondary, null));
+        tvDesc.setGravity(android.view.Gravity.CENTER);
+        tvDesc.setPadding(48, 32, 48, 24);
+        root.addView(tvDesc);
+
+        // ChipGroup with user's interests
+        ChipGroup chipGroup = new ChipGroup(this);
+        chipGroup.setSingleSelection(true);
+        chipGroup.setPadding(40, 0, 40, 0);
+        chipGroup.setChipSpacingHorizontal(16);
+        chipGroup.setChipSpacingVertical(12);
+
+        for (String interest : interests) {
+            String tag = interest.trim();
+            if (tag.isEmpty()) continue;
+
+            Chip chip = new Chip(this);
+            chip.setText(tag);
+            chip.setCheckable(true);
+            chip.setChipBackgroundColorResource(R.color.card_surface);
+            chip.setChipStrokeColorResource(R.color.primary_pink);
+            chip.setChipStrokeWidth(2f);
+            chip.setTextColor(getResources().getColor(R.color.text_primary, null));
+            chip.setChipCornerRadius(40f);
+            chip.setTextSize(14);
+            chipGroup.addView(chip);
+        }
+        root.addView(chipGroup);
+
+        // Confirm button
+        com.google.android.material.button.MaterialButton btnOk =
+                new com.google.android.material.button.MaterialButton(this);
+        btnOk.setText("Xác nhận");
+        btnOk.setTextSize(16);
+        btnOk.setAllCaps(false);
+        btnOk.setCornerRadius(72);
+        btnOk.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                getResources().getColor(R.color.primary_pink, null)));
+        LinearLayout.LayoutParams btnP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 140);
+        btnP.setMargins(48, 36, 48, 48);
+        btnOk.setLayoutParams(btnP);
+
+        btnOk.setOnClickListener(v -> {
+            int checkedId = chipGroup.getCheckedChipId();
+            if (checkedId != View.NO_ID) {
+                Chip selected = chipGroup.findViewById(checkedId);
+                selectedTag = selected.getText().toString();
+                tvSelectedTag.setText(selectedTag);
+                cardSelectedTag.setVisibility(View.VISIBLE);
+                dialog.dismiss();
+            } else {
+                Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
+            }
+        });
+        root.addView(btnOk);
+
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(this);
+        scrollView.addView(root);
+        dialog.setContentView(scrollView);
 
         dialog.setOnShowListener(dialogInterface -> {
             BottomSheetDialog d = (BottomSheetDialog) dialogInterface;
@@ -378,50 +494,6 @@ public class CreatePostActivity extends AppCompatActivity {
                 com.google.android.material.bottomsheet.BottomSheetBehavior behavior =
                         com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
                 behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
-                bottomSheet.getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
-            }
-        });
-
-        ChipGroup groupSport = view.findViewById(R.id.groupSport);
-        ChipGroup groupStudy = view.findViewById(R.id.groupStudy);
-        ChipGroup groupChill = view.findViewById(R.id.groupChill);
-        MaterialButton btnOk = view.findViewById(R.id.btnOkInterest);
-        ImageView ivCloseInterest = view.findViewById(R.id.ivCloseInterest);
-        ivCloseInterest.setOnClickListener(v -> dialog.dismiss());
-
-        ChipGroup[] allGroups = {groupSport, groupStudy, groupChill};
-
-        for (ChipGroup currentGroup : allGroups) {
-            currentGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
-                if (!checkedIds.isEmpty()) {
-                    for (ChipGroup otherGroup : allGroups) {
-                        if (otherGroup != group) {
-                            otherGroup.clearCheck();
-                        }
-                    }
-                }
-            });
-        }
-
-        btnOk.setOnClickListener(v -> {
-            String tagChosen = "";
-            for (ChipGroup group : allGroups) {
-                int checkedId = group.getCheckedChipId();
-                if (checkedId != View.NO_ID) {
-                    Chip chip = group.findViewById(checkedId);
-                    tagChosen = chip.getText().toString();
-                    break;
-                }
-            }
-
-            if (!tagChosen.isEmpty()) {
-                selectedTag = tagChosen;
-                tvSelectedTag.setText(selectedTag);
-                cardSelectedTag.setVisibility(View.VISIBLE);
-                Toast.makeText(this, "Đã chọn: " + selectedTag, Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-            } else {
-                Toast.makeText(this, "Bạn chưa chọn sở thích nào!", Toast.LENGTH_SHORT).show();
             }
         });
 

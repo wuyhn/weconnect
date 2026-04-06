@@ -13,17 +13,15 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.weconnect.R;
-import com.example.weconnect.api.AuthApiService; // Import Interface của bạn
-import com.example.weconnect.models.LoginRequest; // Import Model của bạn
-import com.example.weconnect.models.User;
-
-import java.io.IOException;
+import com.example.weconnect.api.AuthApiService;
+import com.example.weconnect.api.RetrofitClient;
+import com.example.weconnect.models.ApiResponse;
+import com.example.weconnect.models.AuthResponse;
+import com.example.weconnect.models.LoginRequest;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -31,7 +29,6 @@ public class LoginActivity extends AppCompatActivity {
     private TextView tvErrorEmail, tvErrorPassword, tvRegister;
     private Button btnLogin;
 
-    // --- BƯỚC 1: Khai báo apiService ---
     private AuthApiService apiService;
 
     @Override
@@ -42,12 +39,8 @@ public class LoginActivity extends AppCompatActivity {
         initViews();
         setupSmartValidation();
 
-        // --- BƯỚC 2: Khởi tạo Retrofit ---
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8080/") // Địa chỉ kết nối tới Spring Boot
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        apiService = retrofit.create(AuthApiService.class);
+        // Dùng RetrofitClient chung
+        apiService = RetrofitClient.getClient().create(AuthApiService.class);
 
         // Hiệu ứng nảy cho nút Đăng nhập
         btnLogin.setOnTouchListener((v, event) -> {
@@ -67,7 +60,6 @@ public class LoginActivity extends AppCompatActivity {
                 String email = etEmail.getText().toString().trim();
                 String password = etPassword.getText().toString().trim();
 
-                // --- BƯỚC 3: Gọi API thật thay vì check giả lập ---
                 loginWithBackend(email, password);
             } else {
                 Toast.makeText(this, "Vui lòng hoàn thiện đúng thông tin", Toast.LENGTH_SHORT).show();
@@ -85,35 +77,41 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // Hàm gọi tới Spring Boot
+    // Gọi API login mới - nhận JWT token
     private void loginWithBackend(String email, String password) {
         LoginRequest loginRequest = new LoginRequest(email, password);
 
-        apiService.login(loginRequest).enqueue(new Callback<User>() {
+        apiService.login(loginRequest).enqueue(new Callback<ApiResponse<AuthResponse>>() {
             @Override
-            public void onResponse(Call<User> call, Response<User> response) {
-                if (response.isSuccessful()) {
-                    // Đăng nhập thành công
+            public void onResponse(Call<ApiResponse<AuthResponse>> call,
+                                   Response<ApiResponse<AuthResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    AuthResponse authResult = response.body().getResult();
+
+                    // Lưu JWT token và thông tin user
+                    RetrofitClient.saveToken(LoginActivity.this, authResult.getToken());
+                    RetrofitClient.saveUserId(LoginActivity.this, authResult.getId());
+                    RetrofitClient.saveUserName(LoginActivity.this, authResult.getFullName());
+
                     Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish();
                 } else {
-                    // Xử lý lỗi: Tài khoản không tồn tại hoặc sai mật khẩu từ Backend trả về
-                    try {
-                        String messageFromServer = response.errorBody().string();
-                        // Hiển thị lỗi lên TextView lỗi mật khẩu hoặc Toast
-                        showError(tvErrorPassword, messageFromServer);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    // Lỗi từ backend
+                    String errorMsg = "Sai email hoặc mật khẩu";
+                    if (response.body() != null) {
+                        errorMsg = response.body().getMessage();
                     }
+                    showError(tvErrorPassword, errorMsg);
                 }
             }
 
             @Override
-            public void onFailure(Call<User> call, Throwable t) {
-                // Lỗi này xảy ra khi Backend chưa chạy hoặc sai IP
-                Toast.makeText(LoginActivity.this, "Không thể kết nối Server. Hãy kiểm tra Backend!", Toast.LENGTH_LONG).show();
+            public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
+                Toast.makeText(LoginActivity.this,
+                        "Không thể kết nối Server. Hãy kiểm tra Backend!",
+                        Toast.LENGTH_LONG).show();
             }
         });
     }

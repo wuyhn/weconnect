@@ -1,15 +1,19 @@
 package com.example.weconnect.api;
-import com.example.weconnect.models.LoginRequest; // Bạn cần tạo file này trong folder models
-import com.example.weconnect.models.User;         // Bạn cần tạo file này trong folder models
+
+import com.example.weconnect.models.ApiResponse;
+import com.example.weconnect.models.AuthResponse;
+import com.example.weconnect.models.LoginRequest;
+import com.example.weconnect.models.User;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.POST;
-public interface AuthApiService {
-    @POST("api/auth/login")
-    Call<User> login(@Body LoginRequest loginRequest);
 
-    // API Đăng ký
+public interface AuthApiService {
+
+    @POST("api/auth/login")
+    Call<ApiResponse<AuthResponse>> login(@Body LoginRequest loginRequest);
+
     @POST("api/auth/register")
-    Call<String> register(@Body User user);
+    Call<ApiResponse<Void>> register(@Body User user);
 }

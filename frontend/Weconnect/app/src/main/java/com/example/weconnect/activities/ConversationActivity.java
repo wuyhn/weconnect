@@ -36,6 +36,7 @@ public class ConversationActivity extends AppCompatActivity {
     private TextView tvConversationTitle;
     private TextView tvConversationType;
     private TextView tvConversationStatus;
+    private View viewOnlineDot;
     private RecyclerView rvMessages;
     private EditText etMessageInput;
     private MaterialButton btnSendMessage;
@@ -62,6 +63,7 @@ public class ConversationActivity extends AppCompatActivity {
         tvConversationTitle = findViewById(R.id.tvConversationTitle);
         tvConversationType = findViewById(R.id.tvConversationType);
         tvConversationStatus = findViewById(R.id.tvConversationStatus);
+        viewOnlineDot = findViewById(R.id.viewOnlineDot);
         rvMessages = findViewById(R.id.rvMessages);
         etMessageInput = findViewById(R.id.etMessageInput);
         btnSendMessage = findViewById(R.id.btnSendMessage);
@@ -100,13 +102,15 @@ public class ConversationActivity extends AppCompatActivity {
         tvConversationType.setText(room.getTypeLabel());
 
         if (ChatRoom.TYPE_GROUP.equals(room.getType()) && !room.isActive()) {
+            // Inactive group: hide green dot, show inactive label
+            viewOnlineDot.setVisibility(View.GONE);
             tvConversationStatus.setText(room.getInactiveStatusLabel());
-            tvConversationStatus.setBackgroundResource(R.drawable.bg_chat_type_badge_inactive);
-            tvConversationStatus.setTextColor(0xFF7A7A7A);
+            tvConversationStatus.setTextColor(0xFF9E8E82);
         } else {
+            // Active / online: show green dot + "Đang hoạt động"
+            viewOnlineDot.setVisibility(View.VISIBLE);
             tvConversationStatus.setText("Đang hoạt động");
-            tvConversationStatus.setBackgroundResource(R.drawable.bg_chat_type_badge);
-            tvConversationStatus.setTextColor(0xFFFF4D6D);
+            tvConversationStatus.setTextColor(0xFF66BB6A);
         }
 
         // Show settings icon for group/friend_group chats, hide for direct

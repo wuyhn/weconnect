@@ -1,0 +1,214 @@
+package com.weconnect.backend.service;
+
+import com.weconnect.backend.dto.ChatMessageResponse;
+import com.weconnect.backend.dto.ChatRoomResponse;
+import com.weconnect.backend.entity.ChatMessage;
+import com.weconnect.backend.entity.ChatRoom;
+import com.weconnect.backend.entity.ChatRoomMember;
+import com.weconnect.backend.entity.User;
+import com.weconnect.backend.repository.ChatMessageRepository;
+import com.weconnect.backend.repository.ChatRoomMemberRepository;
+import com.weconnect.backend.repository.ChatRoomRepository;
+import com.weconnect.backend.repository.UserRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class ChatService {
+
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomMemberRepository chatRoomMemberRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final UserRepository userRepository;
+
+    public ChatService(ChatRoomRepository chatRoomRepository,
+                       ChatRoomMemberRepository chatRoomMemberRepository,
+                       ChatMessageRepository chatMessageRepository,
+                       UserRepository userRepository) {
+        this.chatRoomRepository = chatRoomRepository;
+        this.chatRoomMemberRepository = chatRoomMemberRepository;
+        this.chatMessageRepository = chatMessageRepository;
+        this.userRepository = userRepository;
+    }
+
+    // Danh sách phòng chat của user
+    public List<ChatRoomResponse> getUserRooms(Long userId) {
+        List<ChatRoomMember> memberships = chatRoomMemberRepository.findByUserId(userId);
+        List<ChatRoomResponse> rooms = new ArrayList<>();
+
+        for (ChatRoomMember membership : memberships) {
+            ChatRoom room = chatRoomRepository.findById(membership.getRoomId()).orElse(null);
+            if (room != null) {
+                rooms.add(toRoomResponse(room));
+            }
+        }
+        return rooms;
+    }
+
+    // Chi tiết phòng chat
+    public ChatRoomResponse getRoom(Long roomId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng chat."));
+        return toRoomResponse(room);
+    }
+
+    // Tạo phòng nhóm bạn bè
+    public ChatRoomResponse createGroupRoom(Long ownerId, String title, List<Long> memberIds) {
+        ChatRoom room = ChatRoom.builder()
+                .title(title)
+                .type(ChatRoom.TYPE_FRIEND_GROUP)
+                .ownerId(ownerId)
+                .active(true)
+                .build();
+        room = chatRoomRepository.save(room);
+
+        // Thêm owner làm member
+        chatRoomMemberRepository.save(ChatRoomMember.builder()
+                .roomId(room.getId())
+                .userId(ownerId)
+                .role(ChatRoomMember.Role.OWNER)
+                .build());
+
+        // Thêm các thành viên
+        for (Long memberId : memberIds) {
+            if (!memberId.equals(ownerId)) {
+                chatRoomMemberRepository.save(ChatRoomMember.builder()
+                        .roomId(room.getId())
+                        .userId(memberId)
+                        .role(ChatRoomMember.Role.MEMBER)
+                        .build());
+            }
+        }
+
+        return toRoomResponse(room);
+    }
+
+    // Lấy hoặc tạo phòng DM
+    public ChatRoomResponse getOrCreateDirectRoom(Long user1Id, Long user2Id) {
+        // Tìm phòng direct đã tồn tại
+        ChatRoom existing = chatRoomRepository.findDirectRoomBetween(user1Id, user2Id).orElse(null);
+        if (existing != null) {
+            return toRoomResponse(existing);
+        }
+
+        // Tạo phòng mới
+        User otherUser = userRepository.findById(user2Id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng."));
+
+        ChatRoom room = ChatRoom.builder()
+                .title(otherUser.getFullName())
+                .type(ChatRoom.TYPE_DIRECT)
+                .ownerId(user1Id)
+                .active(true)
+                .build();
+        room = chatRoomRepository.save(room);
+
+        chatRoomMemberRepository.save(ChatRoomMember.builder()
+                .roomId(room.getId()).userId(user1Id).role(ChatRoomMember.Role.OWNER).build());
+        chatRoomMemberRepository.save(ChatRoomMember.builder()
+                .roomId(room.getId()).userId(user2Id).role(ChatRoomMember.Role.MEMBER).build());
+
+        return toRoomResponse(room);
+    }
+
+    // Lịch sử tin nhắn
+    public List<ChatMessageResponse> getMessages(Long roomId, Long currentUserId) {
+        List<ChatMessage> messages = chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(roomId);
+        return toMessageResponseList(messages, currentUserId);
+    }
+
+    // Tin nhắn mới (polling)
+    public List<ChatMessageResponse> getNewMessages(Long roomId, Long afterId, Long currentUserId) {
+        List<ChatMessage> messages = chatMessageRepository
+                .findByRoomIdAndIdGreaterThanOrderByCreatedAtAsc(roomId, afterId);
+        return toMessageResponseList(messages, currentUserId);
+    }
+
+    // Gửi tin nhắn
+    public ChatMessageResponse sendMessage(Long roomId, Long senderId, String content) {
+        if (!chatRoomMemberRepository.existsByRoomIdAndUserId(roomId, senderId)) {
+            throw new RuntimeException("Bạn không phải thành viên phòng chat này.");
+        }
+
+        ChatMessage message = ChatMessage.builder()
+                .roomId(roomId)
+                .senderId(senderId)
+                .content(content)
+                .build();
+
+        message = chatMessageRepository.save(message);
+        return toMessageResponse(message, senderId);
+    }
+
+    // --- Helpers ---
+    private ChatRoomResponse toRoomResponse(ChatRoom room) {
+        List<ChatRoomMember> members = chatRoomMemberRepository.findByRoomId(room.getId());
+        List<ChatRoomResponse.MemberInfo> memberInfos = new ArrayList<>();
+        for (ChatRoomMember m : members) {
+            User user = userRepository.findById(m.getUserId()).orElse(null);
+            if (user != null) {
+                memberInfos.add(ChatRoomResponse.MemberInfo.builder()
+                        .id(user.getId())
+                        .fullName(user.getFullName())
+                        .role(m.getRole().name())
+                        .build());
+            }
+        }
+
+        String ownerName = "";
+        if (room.getOwnerId() != null) {
+            User owner = userRepository.findById(room.getOwnerId()).orElse(null);
+            if (owner != null) ownerName = owner.getFullName();
+        }
+
+        // Last message
+        List<ChatMessage> messages = chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(room.getId());
+        String lastPreview = "Chưa có tin nhắn";
+        String lastTime = "";
+        if (!messages.isEmpty()) {
+            ChatMessage last = messages.get(messages.size() - 1);
+            lastPreview = last.getContent();
+            lastTime = last.getCreatedAt() != null ? last.getCreatedAt().toString() : "";
+        }
+
+        return ChatRoomResponse.builder()
+                .id(room.getId())
+                .title(room.getTitle())
+                .type(room.getType())
+                .ownerId(room.getOwnerId())
+                .ownerName(ownerName)
+                .active(room.isActive())
+                .inactiveStatusLabel(room.getInactiveStatusLabel())
+                .lastMessagePreview(lastPreview)
+                .lastMessageTime(lastTime)
+                .members(memberInfos)
+                .createdAt(room.getCreatedAt())
+                .build();
+    }
+
+    private ChatMessageResponse toMessageResponse(ChatMessage msg, Long currentUserId) {
+        String senderName = "";
+        User sender = userRepository.findById(msg.getSenderId()).orElse(null);
+        if (sender != null) senderName = sender.getFullName();
+
+        return ChatMessageResponse.builder()
+                .id(msg.getId())
+                .roomId(msg.getRoomId())
+                .senderId(msg.getSenderId())
+                .senderName(senderName)
+                .content(msg.getContent())
+                .sentByCurrentUser(msg.getSenderId().equals(currentUserId))
+                .createdAt(msg.getCreatedAt())
+                .build();
+    }
+
+    private List<ChatMessageResponse> toMessageResponseList(List<ChatMessage> messages, Long currentUserId) {
+        List<ChatMessageResponse> responses = new ArrayList<>();
+        for (ChatMessage msg : messages) {
+            responses.add(toMessageResponse(msg, currentUserId));
+        }
+        return responses;
+    }
+}

@@ -5,7 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.Id;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -28,6 +29,29 @@ public class User {
     private String birthday;
     private String gender;
 
+    @Column(length = 500)
+    private String avatarUrl;
+
+    @Column(length = 1000)
+    private String bio;
+
+    @Column(length = 500)
+    private String interestTags; // Comma-separated: "Cà phê,Lập trình,Ẩm thực"
+
+    @Column(columnDefinition = "FLOAT DEFAULT 0")
+    private float averageRating;
+
+    @Column(columnDefinition = "INT DEFAULT 0")
+    private int reputationScore;
+
     @Column(name = "is_blocked")
     private boolean isBlocked = false;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }

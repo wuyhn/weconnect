@@ -53,9 +53,11 @@ public class ChatRoomAdapter extends RecyclerView.Adapter<ChatRoomAdapter.ChatRo
         if (ChatRoom.TYPE_GROUP.equals(room.getType()) && !room.isActive()) {
             holder.tvTypeBadge.setBackgroundResource(R.drawable.bg_chat_type_badge_inactive);
             holder.viewAccentDot.setBackgroundResource(R.drawable.bg_chat_accent_dot_inactive);
+            holder.viewOnlineIndicator.setVisibility(View.GONE);
         } else {
             holder.tvTypeBadge.setBackgroundResource(R.drawable.bg_chat_type_badge);
             holder.viewAccentDot.setBackgroundResource(R.drawable.bg_chat_accent_dot);
+            holder.viewOnlineIndicator.setVisibility(View.VISIBLE);
         }
 
         holder.itemView.setOnClickListener(v -> listener.onChatRoomClick(room));
@@ -73,6 +75,7 @@ public class ChatRoomAdapter extends RecyclerView.Adapter<ChatRoomAdapter.ChatRo
         TextView tvLastMessage;
         TextView tvTime;
         View viewAccentDot;
+        View viewOnlineIndicator;
 
         ChatRoomViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -82,6 +85,7 @@ public class ChatRoomAdapter extends RecyclerView.Adapter<ChatRoomAdapter.ChatRo
             tvLastMessage = itemView.findViewById(R.id.tvLastMessage);
             tvTime = itemView.findViewById(R.id.tvChatTime);
             viewAccentDot = itemView.findViewById(R.id.viewAccentDot);
+            viewOnlineIndicator = itemView.findViewById(R.id.viewOnlineIndicator);
         }
     }
 }

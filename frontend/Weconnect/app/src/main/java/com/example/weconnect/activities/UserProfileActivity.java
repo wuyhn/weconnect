@@ -311,6 +311,7 @@ public class UserProfileActivity extends AppCompatActivity {
             ivMenuProfile.setVisibility(View.VISIBLE);
             tvFriendCount.setVisibility(View.VISIBLE);
             tvFriendCount.setText("👥 Bạn bè: " + socialRepository.getFriendCount());
+            tvFriendCount.setOnClickListener(v -> showFriendListDialog());
             layoutSocialButtons.setVisibility(View.GONE);
             layoutRateReport.setVisibility(View.GONE);
             btnViewArchive.setVisibility(View.VISIBLE);
@@ -425,6 +426,87 @@ public class UserProfileActivity extends AppCompatActivity {
                 });
                 break;
         }
+    }
+
+    private void showFriendListDialog() {
+        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(getResources().getColor(R.color.card_surface, null));
+        root.setPadding(0, 0, 0, 48);
+
+        // Header
+        TextView header = new TextView(this);
+        header.setText("👥 Danh sách bạn bè");
+        header.setTextSize(20);
+        header.setTextColor(getResources().getColor(R.color.primary_pink, null));
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setGravity(Gravity.CENTER);
+        header.setPadding(0, 48, 0, 24);
+        root.addView(header);
+
+        // Divider
+        View div = new View(this);
+        div.setBackgroundColor(0xFFE8E4DE);
+        div.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 2));
+        root.addView(div);
+
+        List<String> friends = socialRepository.getFriendNames();
+
+        if (friends.isEmpty()) {
+            TextView tvEmpty = new TextView(this);
+            tvEmpty.setText("Bạn chưa có bạn bè nào");
+            tvEmpty.setTextSize(15);
+            tvEmpty.setTextColor(getResources().getColor(R.color.text_secondary, null));
+            tvEmpty.setGravity(Gravity.CENTER);
+            tvEmpty.setPadding(0, 48, 0, 48);
+            root.addView(tvEmpty);
+        } else {
+            for (String friendName : friends) {
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(64, 32, 64, 32);
+                row.setBackgroundResource(android.R.drawable.list_selector_background);
+                row.setClickable(true);
+                row.setFocusable(true);
+
+                TextView tvIcon = new TextView(this);
+                tvIcon.setText("👤");
+                tvIcon.setTextSize(22);
+                row.addView(tvIcon);
+
+                TextView tvName = new TextView(this);
+                tvName.setText(friendName);
+                tvName.setTextSize(16);
+                tvName.setTextColor(getResources().getColor(R.color.text_primary, null));
+                tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+                tvName.setPadding(32, 0, 0, 0);
+                row.addView(tvName);
+
+                row.setOnClickListener(v -> {
+                    sheet.dismiss();
+                    Intent intent = new Intent(this, UserProfileActivity.class);
+                    intent.putExtra("username", friendName);
+                    startActivity(intent);
+                });
+
+                root.addView(row);
+
+                // Separator
+                View sep = new View(this);
+                sep.setBackgroundColor(0xFFE8E4DE);
+                sep.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1));
+                root.addView(sep);
+            }
+        }
+
+        sheet.setContentView(root);
+        sheet.show();
     }
 
     private void showFriendOptionsMenu() {

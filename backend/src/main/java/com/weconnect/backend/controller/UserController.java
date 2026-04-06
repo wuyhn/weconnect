@@ -1,0 +1,129 @@
+package com.weconnect.backend.controller;
+
+import com.weconnect.backend.dto.ChangePasswordRequest;
+import com.weconnect.backend.dto.UpdateProfileRequest;
+import com.weconnect.backend.dto.UserProfileResponse;
+import com.weconnect.backend.dto.request.ApiResponse;
+import com.weconnect.backend.entity.User;
+import com.weconnect.backend.repository.UserRepository;
+import com.weconnect.backend.service.UserService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    private final UserService userService;
+    private final UserRepository userRepository;
+
+    public UserController(UserService userService, UserRepository userRepository) {
+        this.userService = userService;
+        this.userRepository = userRepository;
+    }
+
+    // Lấy profile của chính mình
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyProfile(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        UserProfileResponse profile = userService.getProfile(currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000)
+                .message("Thành công")
+                .result(profile)
+                .build());
+    }
+
+    // Lấy profile của user khác
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getProfile(@PathVariable Long id) {
+        try {
+            UserProfileResponse profile = userService.getProfile(id);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000)
+                    .message("Thành công")
+                    .result(profile)
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(ApiResponse.builder()
+                    .code(1003)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
+    // Cập nhật profile
+    @PutMapping("/me")
+    public ResponseEntity<?> updateProfile(Authentication authentication,
+                                           @RequestBody UpdateProfileRequest request) {
+        User currentUser = (User) authentication.getPrincipal();
+        UserProfileResponse profile = userService.updateProfile(currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000)
+                .message("Cập nhật thành công!")
+                .result(profile)
+                .build());
+    }
+
+    // Lưu sở thích từ onboarding
+    @PutMapping("/me/interests")
+    public ResponseEntity<?> saveInterests(Authentication authentication,
+                                           @RequestBody Map<String, List<String>> body) {
+        User currentUser = (User) authentication.getPrincipal();
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+        List<String> interests = body.get("interests");
+        if (interests != null) {
+            user.setInterestTags(String.join(",", interests));
+            userRepository.save(user);
+        }
+
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000)
+                .message("Đã lưu sở thích!")
+                .result(interests)
+                .build());
+    }
+
+    // Lấy sở thích của user
+    @GetMapping("/me/interests")
+    public ResponseEntity<?> getInterests(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+        String tags = user.getInterestTags();
+        List<String> interests = (tags != null && !tags.isEmpty())
+                ? List.of(tags.split(",")) : List.of();
+
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000)
+                .message("Thành công")
+                .result(interests)
+                .build());
+    }
+
+    // Đổi mật khẩu
+    @PutMapping("/me/password")
+    public ResponseEntity<?> changePassword(Authentication authentication,
+                                            @RequestBody ChangePasswordRequest request) {
+        User currentUser = (User) authentication.getPrincipal();
+        try {
+            String result = userService.changePassword(currentUser.getId(), request);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000)
+                    .message(result)
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .code(1004)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+}

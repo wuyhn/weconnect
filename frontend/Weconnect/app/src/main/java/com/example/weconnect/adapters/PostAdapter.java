@@ -473,39 +473,58 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         boolean isOwnPost = currentUsername.equalsIgnoreCase(post.getUsername());
 
         if (isOwnPost) {
-            // Own post: don't show join button, only show members
+            // Own post: don't show join button, only show members centered
             holder.btnJoinGroup.setVisibility(View.GONE);
-        } else if (post.isJoined()) {
-            // Already joined: show "Mở đoạn chat" to open conversation
-            holder.btnJoinGroup.setVisibility(View.VISIBLE);
-            holder.btnJoinGroup.setText("💬 Mở đoạn chat");
-            holder.btnJoinGroup.setEnabled(true);
-            holder.btnJoinGroup.setAlpha(1.0f);
-            holder.btnJoinGroup.setOnClickListener(v -> {
-                Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
-                intent.putExtra("chat_name", post.getUsername());
-                context.startActivity(intent);
-            });
-        } else if (post.isPendingApproval()) {
-            // Pending approval: show dimmed "Đang chờ duyệt"
-            holder.btnJoinGroup.setVisibility(View.VISIBLE);
-            holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
-            holder.btnJoinGroup.setEnabled(false);
-            holder.btnJoinGroup.setAlpha(0.6f);
-            holder.btnJoinGroup.setOnClickListener(null);
+
+            // Remove weight so gravity="center" on parent works
+            android.widget.LinearLayout.LayoutParams params = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    (int) (48 * holder.itemView.getResources().getDisplayMetrics().density));
+            params.weight = 0;
+            holder.btnViewMembers.setLayoutParams(params);
+            holder.btnViewMembers.setPadding(48, 0, 48, 0);
         } else {
-            // Not joined: show active "Tham gia" button
+            // Other's post: show join button with weighted layout
             holder.btnJoinGroup.setVisibility(View.VISIBLE);
-            holder.btnJoinGroup.setText("Tham gia");
-            holder.btnJoinGroup.setEnabled(true);
-            holder.btnJoinGroup.setAlpha(1.0f);
-            holder.btnJoinGroup.setOnClickListener(v -> {
-                post.setPendingApproval(true);
-                Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
+
+            // Restore weight-based layout for both buttons
+            android.widget.LinearLayout.LayoutParams params = new android.widget.LinearLayout.LayoutParams(
+                    0,
+                    (int) (48 * holder.itemView.getResources().getDisplayMetrics().density));
+            params.weight = 1;
+            params.setMarginStart((int) (6 * holder.itemView.getResources().getDisplayMetrics().density));
+            holder.btnViewMembers.setLayoutParams(params);
+            holder.btnViewMembers.setPadding(0, 0, 0, 0);
+
+            if (post.isJoined()) {
+                // Already joined: show "Mở đoạn chat" to open conversation
+                holder.btnJoinGroup.setText("💬 Mở đoạn chat");
+                holder.btnJoinGroup.setEnabled(true);
+                holder.btnJoinGroup.setAlpha(1.0f);
+                holder.btnJoinGroup.setOnClickListener(v -> {
+                    Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
+                    intent.putExtra("chat_name", post.getUsername());
+                    context.startActivity(intent);
+                });
+            } else if (post.isPendingApproval()) {
+                // Pending approval: show dimmed "Đang chờ duyệt"
                 holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
                 holder.btnJoinGroup.setEnabled(false);
                 holder.btnJoinGroup.setAlpha(0.6f);
-            });
+                holder.btnJoinGroup.setOnClickListener(null);
+            } else {
+                // Not joined: show active "Tham gia" button
+                holder.btnJoinGroup.setText("Tham gia");
+                holder.btnJoinGroup.setEnabled(true);
+                holder.btnJoinGroup.setAlpha(1.0f);
+                holder.btnJoinGroup.setOnClickListener(v -> {
+                    post.setPendingApproval(true);
+                    Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
+                    holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
+                    holder.btnJoinGroup.setEnabled(false);
+                    holder.btnJoinGroup.setAlpha(0.6f);
+                });
+            }
         }
     }
 

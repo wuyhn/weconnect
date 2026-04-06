@@ -38,7 +38,11 @@ public class FakeSocialRepository {
 
     private static FakeSocialRepository instance;
     private final Map<String, SocialState> stateMap = new HashMap<>();
-    private final String currentUsername = "Quỳnh Nguyễn";
+    private String currentUsername = "Quỳnh Nguyễn";
+
+    public void setCurrentUsername(String name) {
+        this.currentUsername = name;
+    }
 
     private FakeSocialRepository() {
         seed();

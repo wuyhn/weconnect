@@ -2,17 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="10dp"
+    android:layout_marginTop="6dp"
     android:gravity="end"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingStart="52dp"
+    android:paddingEnd="0dp">
 
     <TextView
         android:id="@+id/tvMessageSender"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="4dp"
-        android:text="Ban"
-        android:textColor="@color/text_secondary"
+        android:layout_gravity="end"
+        android:layout_marginEnd="2dp"
+        android:text="Bạn"
+        android:textColor="#BBAA9E"
         android:textSize="11sp"
         android:textStyle="bold" />
 
@@ -20,22 +23,25 @@
         android:id="@+id/tvMessageContent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_gravity="end"
+        android:layout_marginTop="3dp"
         android:background="@drawable/bg_message_outgoing"
-        android:maxWidth="260dp"
+        android:maxWidth="240dp"
         android:paddingHorizontal="14dp"
-        android:paddingVertical="11dp"
+        android:paddingVertical="10dp"
         android:text="Message"
         android:textColor="@android:color/white"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        android:lineSpacingExtra="2dp" />
 
     <TextView
         android:id="@+id/tvMessageTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="4dp"
+        android:layout_gravity="end"
+        android:layout_marginEnd="2dp"
+        android:layout_marginTop="2dp"
         android:text="09:20"
-        android:textColor="@color/text_secondary"
-        android:textSize="11sp" />
+        android:textColor="#C8BDB5"
+        android:textSize="10sp" />
 </LinearLayout>

@@ -9,15 +9,23 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.weconnect.R;
+import com.example.weconnect.api.RetrofitClient;
+import com.example.weconnect.api.UserApiService;
 import com.example.weconnect.data.FakePostRepository;
+import com.example.weconnect.models.ApiResponse;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class OnboardingActivity extends AppCompatActivity {
 
@@ -70,9 +78,12 @@ public class OnboardingActivity extends AppCompatActivity {
                 Toast.makeText(this, "Vui lòng chọn ít nhất 1 sở thích", Toast.LENGTH_SHORT).show();
                 return;
             }
-            // Save interests to repository
+            // Save to FakePostRepository (fallback)
             FakePostRepository.getInstance().setUserInterests(selectedInterests);
-            goToMain();
+            // Save to SharedPreferences (cho CreatePost dùng offline)
+            saveInterestsToPrefs(selectedInterests);
+            // Save to backend API
+            saveInterestsToBackend(selectedInterests);
         });
 
         updateCounter();
@@ -147,6 +158,41 @@ public class OnboardingActivity extends AppCompatActivity {
         } else {
             fabNext.setAlpha(1.0f);
         }
+    }
+
+    private void saveInterestsToPrefs(List<String> interests) {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        prefs.edit().putString("user_interests", String.join(",", interests)).apply();
+    }
+
+    private void saveInterestsToBackend(List<String> interests) {
+        RetrofitClient.loadToken(this);
+        String token = RetrofitClient.getAuthToken();
+
+        if (token == null) {
+            // Chưa đăng nhập → chỉ lưu local, vẫn đi tiếp
+            goToMain();
+            return;
+        }
+
+        UserApiService apiService = RetrofitClient.getClient().create(UserApiService.class);
+        Map<String, List<String>> body = new HashMap<>();
+        body.put("interests", interests);
+
+        apiService.saveInterests(body).enqueue(new Callback<ApiResponse<List<String>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<String>>> call,
+                                   Response<ApiResponse<List<String>>> response) {
+                goToMain();
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<String>>> call, Throwable t) {
+                // API thất bại vẫn đi tiếp (đã lưu local)
+                goToMain();
+            }
+        });
     }
 
     private void goToMain() {
