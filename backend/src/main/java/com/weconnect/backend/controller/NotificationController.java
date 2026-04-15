@@ -48,6 +48,19 @@ public class NotificationController {
                 .code(1000).message("Đã đọc tất cả thông báo.").build());
     }
 
+    // Đánh dấu đã xử lý
+    @PutMapping("/{id}/action")
+    public ResponseEntity<?> markAsActioned(@PathVariable Long id) {
+        try {
+            notificationService.markAsActioned(id);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000).message("Đã đánh dấu đã xử lý.").build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .code(1012).message(e.getMessage()).build());
+        }
+    }
+
     // Số chưa đọc
     @GetMapping("/unread-count")
     public ResponseEntity<?> getUnreadCount(Authentication authentication) {

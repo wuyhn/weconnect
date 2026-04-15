@@ -47,6 +47,10 @@ public class User {
     @Column(name = "is_blocked")
     private boolean isBlocked = false;
 
+    // 0 = User thường, 1 = Admin
+    @Column(columnDefinition = "INT DEFAULT 0")
+    private int role = 0;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

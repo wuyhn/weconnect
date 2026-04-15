@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.weconnect.R;
+import com.example.weconnect.api.RetrofitClient;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
@@ -60,6 +61,11 @@ public class CreatePostActivity extends AppCompatActivity {
         ivClose = findViewById(R.id.ivClose);
         etPostContent = findViewById(R.id.etPostContent);
         tvUserName = findViewById(R.id.tvUserName);
+        // Hiển thị tên user thật
+        String savedName = RetrofitClient.getUserName(this);
+        if (savedName != null && !savedName.isEmpty()) {
+            tvUserName.setText(savedName);
+        }
         btnPost = findViewById(R.id.btnPost);
         ivAddImage = findViewById(R.id.ivAddImage);
         ivAddLocation = findViewById(R.id.ivAddLocation);
@@ -90,17 +96,30 @@ public class CreatePostActivity extends AppCompatActivity {
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         selectedImageUri = result.getData().getData();
-                        if (selectedImageUri != null && ivPostImagePreview != null) {
-                            ivPostImagePreview.setImageURI(selectedImageUri);
-                            ivPostImagePreview.setVisibility(View.VISIBLE);
+                        if (selectedImageUri != null) {
+                            // Lấy quyền đọc URI vĩnh viễn để tránh SecurityException
+                            try {
+                                getContentResolver().takePersistableUriPermission(
+                                        selectedImageUri,
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (SecurityException e) {
+                                // Ignore nếu không hỗ trợ persistable
+                            }
+                            if (ivPostImagePreview != null) {
+                                ivPostImagePreview.setImageURI(selectedImageUri);
+                                ivPostImagePreview.setVisibility(View.VISIBLE);
+                            }
                         }
                     }
                 }
         );
 
         ivAddImage.setOnClickListener(v -> {
-            Intent pickImage = new Intent(Intent.ACTION_PICK);
+            Intent pickImage = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pickImage.addCategory(Intent.CATEGORY_OPENABLE);
             pickImage.setType("image/*");
+            pickImage.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             imagePickerLauncher.launch(pickImage);
         });
         ivAddLocation.setOnClickListener(v -> showLocationDialog());
@@ -367,20 +386,51 @@ public class CreatePostActivity extends AppCompatActivity {
     }
 
     private void showTagDialog() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-
         // Lấy sở thích đã lưu từ SharedPreferences
         android.content.SharedPreferences prefs =
                 getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
         String savedInterests = prefs.getString("user_interests", "");
 
-        // Nếu chưa có sở thích → thông báo
         if (savedInterests.isEmpty()) {
-            Toast.makeText(this, "Bạn chưa chọn sở thích! Vui lòng vào Onboarding để chọn.", Toast.LENGTH_LONG).show();
-            return;
-        }
+            // SharedPreferences trống → thử load từ backend API
+            RetrofitClient.loadToken(this);
+            com.example.weconnect.api.UserApiService userApi =
+                    RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
 
-        String[] interests = savedInterests.split(",");
+            userApi.getInterests().enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<java.util.List<String>>>() {
+                @Override
+                public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call,
+                                       retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.List<String>>> response) {
+                    if (response.isSuccessful() && response.body() != null
+                            && response.body().getResult() != null
+                            && !response.body().getResult().isEmpty()) {
+                        java.util.List<String> interests = response.body().getResult();
+                        // Lưu vào SharedPreferences để lần sau không cần gọi API
+                        prefs.edit().putString("user_interests", String.join(",", interests)).apply();
+                        // Hiển thị dialog
+                        showTagDialogWithInterests(interests.toArray(new String[0]));
+                    } else {
+                        Toast.makeText(CreatePostActivity.this,
+                                "Bạn chưa chọn sở thích! Vui lòng vào trang cá nhân để cập nhật.",
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call, Throwable t) {
+                    Toast.makeText(CreatePostActivity.this,
+                            "Không thể tải sở thích. Vui lòng kiểm tra kết nối mạng.",
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+        } else {
+            // Đã có sở thích trong SharedPreferences
+            showTagDialogWithInterests(savedInterests.split(","));
+        }
+    }
+
+    private void showTagDialogWithInterests(String[] interests) {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
 
         // Build layout
         LinearLayout root = new LinearLayout(this);

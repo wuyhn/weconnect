@@ -23,9 +23,16 @@ import com.example.weconnect.models.Post;
 import com.example.weconnect.models.PostResponse;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.Date;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -42,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private FakePostRepository postRepository;
     private PostApiService postApiService;
     private ActivityResultLauncher<Intent> createPostLauncher;
+    private android.widget.TextView tvNotifBadge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +73,78 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         setupClickListeners();
         setupRecyclerView();
+        loadUnreadNotificationCount();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadPostsFromApi();
+        loadUnreadNotificationCount();
+        highlightTab(btnHome);
+    }
+
+    private void loadUnreadNotificationCount() {
+        RetrofitClient.loadToken(this);
+        String token = RetrofitClient.getAuthToken();
+        if (token == null || tvNotifBadge == null) return;
+
+        com.example.weconnect.api.NotificationApiService notifApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.NotificationApiService.class);
+
+        notifApi.getUnreadCount().enqueue(new Callback<ApiResponse<Integer>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Integer>> call,
+                                   Response<ApiResponse<Integer>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    int count = response.body().getResult();
+                    runOnUiThread(() -> updateBadge(count));
+                } else {
+                    // Fallback: try counting from notifications list
+                    loadUnreadCountFallback();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Integer>> call, Throwable t) {
+                loadUnreadCountFallback();
+            }
+        });
+    }
+
+    private void loadUnreadCountFallback() {
+        com.example.weconnect.api.NotificationApiService notifApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.NotificationApiService.class);
+
+        notifApi.getNotifications().enqueue(new Callback<ApiResponse<java.util.List<com.example.weconnect.models.NotificationItem>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<java.util.List<com.example.weconnect.models.NotificationItem>>> call,
+                                   Response<ApiResponse<java.util.List<com.example.weconnect.models.NotificationItem>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    int count = 0;
+                    for (com.example.weconnect.models.NotificationItem item : response.body().getResult()) {
+                        if (!item.isRead()) count++;
+                    }
+                    int finalCount = count;
+                    runOnUiThread(() -> updateBadge(finalCount));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<java.util.List<com.example.weconnect.models.NotificationItem>>> call, Throwable t) {}
+        });
+    }
+
+    private void updateBadge(int count) {
+        if (tvNotifBadge == null) return;
+        if (count > 0) {
+            tvNotifBadge.setVisibility(View.VISIBLE);
+            tvNotifBadge.setText(count > 99 ? "99+" : String.valueOf(count));
+        } else {
+            tvNotifBadge.setVisibility(View.GONE);
+        }
     }
 
     private void setupActivityResultLauncher() {
@@ -78,15 +158,16 @@ public class MainActivity extends AppCompatActivity {
                         String location = data.getStringExtra("post_location");
                         int maxMembers = data.getIntExtra("post_max_members", 10);
                         String imageUri = data.getStringExtra("post_image_uri");
+                        long endTimeMillis = data.getLongExtra("post_end_time", System.currentTimeMillis() + 24L * 60L * 60L * 1000L);
 
                         // Gọi API tạo bài đăng mới
-                        createPostViaApi(content, tag, location, maxMembers, imageUri);
+                        createPostViaApi(content, tag, location, maxMembers, imageUri, endTimeMillis);
                     }
                 }
         );
     }
 
-    private void createPostViaApi(String content, String tag, String location, int maxMembers, String imageUri) {
+    private void createPostViaApi(String content, String tag, String location, int maxMembers, String imageUri, long endTimeMillis) {
         Map<String, Object> body = new HashMap<>();
         body.put("content", content);
         body.put("interestTag", tag);
@@ -96,6 +177,11 @@ public class MainActivity extends AppCompatActivity {
             body.put("imageUrl", imageUri);
         }
 
+        // Gửi startTime và endTime dạng ISO-8601 cho backend
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        body.put("startTime", isoFormat.format(new Date()));
+        body.put("endTime", isoFormat.format(new Date(endTimeMillis)));
+
         postApiService.createPost(body).enqueue(new Callback<ApiResponse<PostResponse>>() {
             @Override
             public void onResponse(Call<ApiResponse<PostResponse>> call,
@@ -104,12 +190,18 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "Đã tạo bài đăng!", Toast.LENGTH_SHORT).show();
                     loadPostsFromApi();
                 } else {
-                    Toast.makeText(MainActivity.this, "Không thể tạo bài đăng", Toast.LENGTH_SHORT).show();
+                    String errorMsg = "Không thể tạo bài đăng";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        errorMsg = response.body().getMessage();
+                    }
+                    android.util.Log.e("CREATE_POST", "Error: " + response.code() + " - " + errorMsg);
+                    Toast.makeText(MainActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<PostResponse>> call, Throwable t) {
+                android.util.Log.e("CREATE_POST", "Failure: " + t.getMessage());
                 Toast.makeText(MainActivity.this, "Lỗi kết nối server", Toast.LENGTH_SHORT).show();
             }
         });
@@ -124,6 +216,7 @@ public class MainActivity extends AppCompatActivity {
         btnProfile = findViewById(R.id.btnProfile);
         rvPosts = findViewById(R.id.rvPosts);
         statusHeader = findViewById(R.id.statusHeader);
+        tvNotifBadge = findViewById(R.id.tvNotifBadge);
 
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefreshLayout =
                 findViewById(R.id.swipeRefreshLayout);
@@ -192,22 +285,22 @@ public class MainActivity extends AppCompatActivity {
                                    Response<ApiResponse<List<PostResponse>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     List<PostResponse> postResponses = response.body().getResult();
-                    postList.clear();
+                    List<Post> allPosts = new ArrayList<>();
                     if (postResponses != null) {
                         for (PostResponse pr : postResponses) {
-                            postList.add(pr.toPost());
+                            allPosts.add(pr.toPost());
                         }
                     }
+                    postList.clear();
+                    postList.addAll(filterAndSortPosts(allPosts));
                     postAdapter.notifyDataSetChanged();
                 } else {
-                    // Fallback: dùng FakePostRepository nếu API lỗi
                     loadPostsFallback();
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<List<PostResponse>>> call, Throwable t) {
-                // Fallback về fake data nếu server không kết nối được
                 loadPostsFallback();
             }
         });
@@ -215,8 +308,80 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadPostsFallback() {
         postList.clear();
-        postList.addAll(postRepository.getActivePosts());
         postAdapter.notifyDataSetChanged();
+        Toast.makeText(this, "Không thể tải bài đăng. Hãy kiểm tra kết nối server!", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Lọc và sắp xếp bài đăng:
+     * 1. Chỉ hiện bài có cùng tag sở thích mà user đã chọn
+     * 2. Chỉ hiện bài còn hạn (chưa hết hạn, chưa đóng)
+     * 3. Ưu tiên bài của bạn bè lên trước, sau đó là người lạ
+     */
+    private List<Post> filterAndSortPosts(List<Post> allPosts) {
+        // 1. Lấy danh sách sở thích của user từ SharedPreferences
+        Set<String> userInterests = getUserInterestTags();
+        Set<String> friendNames = getFriendNames();
+        String currentUser = RetrofitClient.getUserName(this);
+
+        // 2. Lọc: chỉ lấy bài còn hạn + đúng tag sở thích
+        List<Post> friendPosts = new ArrayList<>();
+        List<Post> otherPosts = new ArrayList<>();
+
+        for (Post post : allPosts) {
+            // Bỏ qua bài hết hạn hoặc đã đóng
+            if (post.isExpired() || post.isArchived()) continue;
+
+            // Bỏ qua bài không đúng sở thích (nếu user đã chọn sở thích)
+            if (!userInterests.isEmpty() && post.getInterestTag() != null) {
+                boolean matchTag = false;
+                for (String interest : userInterests) {
+                    if (interest.equalsIgnoreCase(post.getInterestTag().trim())) {
+                        matchTag = true;
+                        break;
+                    }
+                }
+                if (!matchTag) continue;
+            }
+
+            // 3. Phân loại: bài của bạn bè vs người lạ
+            String postAuthor = post.getUsername();
+            if (postAuthor != null && (friendNames.contains(postAuthor) ||
+                    (currentUser != null && postAuthor.equalsIgnoreCase(currentUser)))) {
+                friendPosts.add(post);
+            } else {
+                otherPosts.add(post);
+            }
+        }
+
+        // Ghép: bài bạn bè lên trước, bài người lạ sau
+        List<Post> result = new ArrayList<>();
+        result.addAll(friendPosts);
+        result.addAll(otherPosts);
+        return result;
+    }
+
+    private Set<String> getUserInterestTags() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String saved = prefs.getString("user_interests", "");
+        Set<String> tags = new HashSet<>();
+        if (!saved.isEmpty()) {
+            for (String s : saved.split(",")) {
+                String trimmed = s.trim();
+                if (!trimmed.isEmpty()) tags.add(trimmed);
+            }
+        }
+        return tags;
+    }
+
+    private Set<String> getFriendNames() {
+        try {
+            List<String> friends = com.example.weconnect.data.FakeSocialRepository.getInstance().getFriendNames();
+            return new HashSet<>(friends);
+        } catch (Exception e) {
+            return new HashSet<>();
+        }
     }
 
     private void highlightTab(FrameLayout selectedTab) {

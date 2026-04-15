@@ -49,6 +49,7 @@
         <activity android:name=".activities.ForgotPasswordActivity" />
         <activity android:name=".activities.BlockedUsersActivity" />
         <activity android:name=".activities.LegalActivity" />
+        <activity android:name=".activities.PendingListActivity" />
 
         <meta-data
             android:name="preloaded_fonts"

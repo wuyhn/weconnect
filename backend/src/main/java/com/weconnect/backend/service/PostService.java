@@ -2,6 +2,7 @@ package com.weconnect.backend.service;
 
 import com.weconnect.backend.dto.PostRequest;
 import com.weconnect.backend.dto.PostResponse;
+import com.weconnect.backend.entity.Notification;
 import com.weconnect.backend.entity.Post;
 import com.weconnect.backend.entity.PostMember;
 import com.weconnect.backend.entity.User;
@@ -20,13 +21,16 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostMemberRepository postMemberRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public PostService(PostRepository postRepository,
                        PostMemberRepository postMemberRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       NotificationService notificationService) {
         this.postRepository = postRepository;
         this.postMemberRepository = postMemberRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     // Lấy danh sách bài đăng active
@@ -119,6 +123,24 @@ public class PostService {
                 .build();
 
         postMemberRepository.save(member);
+
+        // Tạo thông báo cho chủ bài đăng
+        User joiner = userRepository.findById(userId).orElse(null);
+        String joinerName = joiner != null ? joiner.getFullName() : "Người dùng";
+        String postTitle = post.getContent();
+        if (postTitle != null && postTitle.length() > 50) {
+            postTitle = postTitle.substring(0, 50) + "...";
+        }
+        String message = joinerName + " muốn tham gia kèo \"" + postTitle + "\" của bạn.";
+        notificationService.createNotification(
+                post.getAuthorId(),
+                Notification.NotificationType.JOIN_REQUEST,
+                message,
+                joinerName,
+                postId,
+                userId
+        );
+
         return "Đã gửi yêu cầu tham gia!";
     }
 
@@ -136,6 +158,24 @@ public class PostService {
 
         member.setStatus(PostMember.Status.APPROVED);
         postMemberRepository.save(member);
+
+        // Tạo thông báo cho người được duyệt
+        User owner = userRepository.findById(ownerId).orElse(null);
+        String ownerName = owner != null ? owner.getFullName() : "Chủ bài đăng";
+        String postTitle = post.getContent();
+        if (postTitle != null && postTitle.length() > 50) {
+            postTitle = postTitle.substring(0, 50) + "...";
+        }
+        String message = "Chúc mừng! " + ownerName + " đã chấp nhận yêu cầu của bạn cho kèo \"" + postTitle + "\".";
+        notificationService.createNotification(
+                memberId,
+                Notification.NotificationType.JOIN_APPROVED,
+                message,
+                ownerName,
+                postId,
+                ownerId
+        );
+
         return "Đã duyệt thành viên!";
     }
 
@@ -153,12 +193,51 @@ public class PostService {
 
         member.setStatus(PostMember.Status.REJECTED);
         postMemberRepository.save(member);
+
+        // Tạo thông báo cho người bị từ chối
+        User owner = userRepository.findById(ownerId).orElse(null);
+        String ownerName = owner != null ? owner.getFullName() : "Chủ bài đăng";
+        String postTitle = post.getContent();
+        if (postTitle != null && postTitle.length() > 50) {
+            postTitle = postTitle.substring(0, 50) + "...";
+        }
+        String message = ownerName + " đã từ chối yêu cầu tham gia kèo \"" + postTitle + "\" của bạn.";
+        notificationService.createNotification(
+                memberId,
+                Notification.NotificationType.JOIN_REJECTED,
+                message,
+                ownerName,
+                postId,
+                ownerId
+        );
+
         return "Đã từ chối thành viên.";
     }
 
-    // Lấy danh sách thành viên
-    public List<PostMember> getMembers(Long postId) {
-        return postMemberRepository.findByPostId(postId);
+    // Lấy danh sách thành viên (enriched with user info)
+    public List<java.util.Map<String, Object>> getMembers(Long postId) {
+        List<PostMember> members = postMemberRepository.findByPostId(postId);
+        List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        for (PostMember pm : members) {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("userId", pm.getUserId());
+            map.put("status", pm.getStatus().name());
+            User user = userRepository.findById(pm.getUserId()).orElse(null);
+            if (user != null) {
+                map.put("fullName", user.getFullName());
+                map.put("username", user.getEmail());
+            } else {
+                map.put("fullName", "Người dùng #" + pm.getUserId());
+                map.put("username", "");
+            }
+            result.add(map);
+        }
+        return result;
+    }
+
+    // Lấy danh sách thành viên đang chờ duyệt
+    public List<PostMember> getPendingMembers(Long postId) {
+        return postMemberRepository.findByPostIdAndStatus(postId, PostMember.Status.PENDING);
     }
 
     // Bài đăng của user (active)

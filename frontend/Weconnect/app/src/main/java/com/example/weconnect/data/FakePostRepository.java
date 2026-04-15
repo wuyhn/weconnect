@@ -10,7 +10,7 @@ public class FakePostRepository {
 
     private static final long ONE_HOUR = 60L * 60L * 1000L;
     private static final long ONE_DAY = 24L * ONE_HOUR;
-    private static final String CURRENT_USERNAME = "Quỳnh Nguyễn";
+    private String currentUsername = "Quỳnh Nguyễn";
 
     private static FakePostRepository instance;
 
@@ -79,7 +79,11 @@ public class FakePostRepository {
     }
 
     public String getCurrentUsername() {
-        return CURRENT_USERNAME;
+        return currentUsername;
+    }
+
+    public void setCurrentUsername(String username) {
+        this.currentUsername = username;
     }
 
     public List<Post> getActivePostsForUser(String username) {
@@ -99,7 +103,7 @@ public class FakePostRepository {
 
         allPosts.add(new Post(
                 "1",
-                CURRENT_USERNAME,
+                currentUsername,
                 "15 phút trước",
                 "Ai muốn đi cà phê và lên kế hoạch buổi tối nay không?",
                 "Cà phê",
@@ -156,7 +160,7 @@ public class FakePostRepository {
 
         allPosts.add(new Post(
                 "4",
-                CURRENT_USERNAME,
+                currentUsername,
                 "2 ngày trước",
                 "Buổi đánh cầu lông sáng nay hoàn thành. Cảm ơn mọi người đã tham gia.",
                 "Cầu lông",

@@ -18,6 +18,8 @@ import com.example.weconnect.R;
 import com.example.weconnect.api.AuthApiService;
 import com.example.weconnect.api.RetrofitClient;
 import com.example.weconnect.models.ApiResponse;
+import com.example.weconnect.models.AuthResponse;
+import com.example.weconnect.models.LoginRequest;
 import com.example.weconnect.models.User;
 import java.util.Calendar;
 import retrofit2.Call;
@@ -79,10 +81,10 @@ public class RegisterActivity extends AppCompatActivity {
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     Toast.makeText(RegisterActivity.this, "Đăng ký thành công!", Toast.LENGTH_LONG).show();
-                    Intent intent = new Intent(RegisterActivity.this, OnboardingActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
+                    // Lưu tên user để dùng làm nickname trong app
+                    RetrofitClient.saveUserName(RegisterActivity.this, fullName);
+                    // Tự động đăng nhập để lấy JWT token
+                    autoLogin(email, password);
                 } else {
                     String error = "Đăng ký thất bại";
                     if (response.body() != null) {
@@ -98,6 +100,39 @@ public class RegisterActivity extends AppCompatActivity {
                 Toast.makeText(RegisterActivity.this, "Lỗi kết nối Server!", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // Tự động đăng nhập sau khi đăng ký để lấy JWT token
+    private void autoLogin(String email, String password) {
+        LoginRequest loginRequest = new LoginRequest(email, password);
+        apiService.login(loginRequest).enqueue(new Callback<ApiResponse<AuthResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<AuthResponse>> call,
+                                   Response<ApiResponse<AuthResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    AuthResponse authResult = response.body().getResult();
+                    // Lưu JWT token và thông tin user
+                    RetrofitClient.saveToken(RegisterActivity.this, authResult.getToken());
+                    RetrofitClient.saveUserId(RegisterActivity.this, authResult.getId());
+                    RetrofitClient.saveUserName(RegisterActivity.this, authResult.getFullName());
+                }
+                // Chuyển sang Onboarding dù login thành công hay không
+                goToOnboarding();
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
+                // Nếu auto-login lỗi, vẫn chuyển sang Onboarding
+                goToOnboarding();
+            }
+        });
+    }
+
+    private void goToOnboarding() {
+        Intent intent = new Intent(RegisterActivity.this, OnboardingActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
     private void setupSmartValidation() {
         // 1. Kiểm tra Tên

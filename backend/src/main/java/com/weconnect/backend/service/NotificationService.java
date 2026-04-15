@@ -20,14 +20,23 @@ public class NotificationService {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    // Tạo thông báo
+    // Tạo thông báo (basic)
     public void createNotification(Long userId, Notification.NotificationType type,
                                    String message, String relatedUsername) {
+        createNotification(userId, type, message, relatedUsername, null, null);
+    }
+
+    // Tạo thông báo (với context post/user)
+    public void createNotification(Long userId, Notification.NotificationType type,
+                                   String message, String relatedUsername,
+                                   Long relatedPostId, Long relatedUserId) {
         Notification notification = Notification.builder()
                 .userId(userId)
                 .type(type)
                 .message(message)
                 .relatedUsername(relatedUsername)
+                .relatedPostId(relatedPostId)
+                .relatedUserId(relatedUserId)
                 .isRead(false)
                 .isActioned(false)
                 .build();
@@ -38,6 +47,15 @@ public class NotificationService {
     public void markAsRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thông báo."));
+        notification.setRead(true);
+        notificationRepository.save(notification);
+    }
+
+    // Đánh dấu đã xử lý
+    public void markAsActioned(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông báo."));
+        notification.setActioned(true);
         notification.setRead(true);
         notificationRepository.save(notification);
     }

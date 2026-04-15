@@ -14,26 +14,37 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
+import com.example.weconnect.activities.PendingListActivity;
 import com.example.weconnect.activities.UserProfileActivity;
+import com.example.weconnect.api.NotificationApiService;
+import com.example.weconnect.api.PostApiService;
+import com.example.weconnect.api.RetrofitClient;
 import com.example.weconnect.data.FakeNotificationRepository;
-import com.example.weconnect.data.FakeNotificationRepository.NotificationItem;
 import com.example.weconnect.data.FakeNotificationRepository.NotificationType;
 import com.example.weconnect.data.FakeSocialRepository;
+import com.example.weconnect.models.ApiResponse;
+import com.example.weconnect.models.NotificationItem;
 import com.google.android.material.button.MaterialButton;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int TYPE_HEADER = 0;
-    private static final int TYPE_ITEM = 1;
+    private static final int TYPE_ITEM_REAL = 1;
+    private static final int TYPE_ITEM_FAKE = 2;
 
     private final Context context;
-    private final List<Object> items; // String (date header) or NotificationItem
+    private final List<Object> items; // String (date header), NotificationItem (real), or FakeNotificationRepository.NotificationItem
 
     public NotificationAdapter(Context context, List<Object> items) {
         this.context = context;
@@ -42,7 +53,10 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
     @Override
     public int getItemViewType(int position) {
-        return items.get(position) instanceof String ? TYPE_HEADER : TYPE_ITEM;
+        Object item = items.get(position);
+        if (item instanceof String) return TYPE_HEADER;
+        if (item instanceof NotificationItem) return TYPE_ITEM_REAL;
+        return TYPE_ITEM_FAKE;
     }
 
     @NonNull
@@ -65,11 +79,300 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         if (holder instanceof HeaderViewHolder) {
             ((HeaderViewHolder) holder).tvHeader.setText((String) items.get(position));
         } else if (holder instanceof NotifViewHolder) {
-            bindNotification((NotifViewHolder) holder, (NotificationItem) items.get(position));
+            Object item = items.get(position);
+            if (item instanceof NotificationItem) {
+                bindRealNotification((NotifViewHolder) holder, (NotificationItem) item);
+            } else if (item instanceof FakeNotificationRepository.NotificationItem) {
+                bindFakeNotification((NotifViewHolder) holder, 
+                        (FakeNotificationRepository.NotificationItem) item);
+            }
         }
     }
 
-    private void bindNotification(NotifViewHolder holder, NotificationItem item) {
+    private void bindRealNotification(NotifViewHolder holder, NotificationItem item) {
+        holder.tvMessage.setText(item.getMessage());
+        holder.tvTime.setText(formatCreatedAt(item.getCreatedAt()));
+
+        // Determine if actionable
+        boolean isActionable = (item.getType() == NotificationItem.NotificationType.JOIN_REQUEST
+                || item.getType() == NotificationItem.NotificationType.FRIEND_REQUEST_RECEIVED);
+
+        if (isActionable && !item.isActioned()) {
+            // For JOIN_REQUEST, check if the related post has expired
+            if (item.getType() == NotificationItem.NotificationType.JOIN_REQUEST
+                    && item.getRelatedPostId() != null) {
+                // Initially hide actions until we know the post status
+                holder.layoutActions.setVisibility(View.GONE);
+                holder.tvActioned.setVisibility(View.GONE);
+
+                RetrofitClient.loadToken(context);
+                PostApiService postApi = RetrofitClient.getClient().create(PostApiService.class);
+                postApi.getPost(item.getRelatedPostId()).enqueue(new Callback<ApiResponse<com.example.weconnect.models.PostResponse>>() {
+                    @Override
+                    public void onResponse(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call,
+                                           Response<ApiResponse<com.example.weconnect.models.PostResponse>> response) {
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().getResult() != null) {
+                            com.example.weconnect.models.PostResponse post = response.body().getResult();
+                            if (post.isExpired()) {
+                                // Post đã hết hạn - hiện label "Đã hết hạn"
+                                holder.layoutActions.setVisibility(View.GONE);
+                                holder.tvActioned.setVisibility(View.VISIBLE);
+                                holder.tvActioned.setText("⏰ Đã hết hạn");
+                                holder.tvActioned.setTextColor(context.getResources().getColor(R.color.text_secondary, null));
+                                // Auto-mark as actioned
+                                markNotificationActioned(item, holder, null);
+                            } else {
+                                // Post còn hạn - hiện nút bình thường
+                                showJoinRequestActions(holder, item);
+                            }
+                        } else {
+                            // Cannot check, show actions normally
+                            showJoinRequestActions(holder, item);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call, Throwable t) {
+                        // Cannot check, show actions normally
+                        showJoinRequestActions(holder, item);
+                    }
+                });
+            } else {
+                // FRIEND_REQUEST or JOIN_REQUEST without postId
+                holder.layoutActions.setVisibility(View.VISIBLE);
+                holder.tvActioned.setVisibility(View.GONE);
+
+                holder.btnAccept.setText("Chấp nhận");
+                holder.btnDecline.setText("Từ chối");
+
+                holder.btnAccept.setOnClickListener(v -> {
+                    FakeSocialRepository.getInstance().acceptFriendRequest(item.getRelatedUsername());
+                    markNotificationActioned(item, holder, "Đã chấp nhận lời mời kết bạn");
+                });
+
+                holder.btnDecline.setOnClickListener(v -> {
+                    FakeSocialRepository.getInstance().declineFriendRequest(item.getRelatedUsername());
+                    markNotificationActioned(item, holder, "Đã từ chối lời mời kết bạn");
+                });
+            }
+        } else if (isActionable && item.isActioned()) {
+            holder.layoutActions.setVisibility(View.GONE);
+            holder.tvActioned.setVisibility(View.VISIBLE);
+            holder.tvActioned.setText("✅ Đã xử lý");
+        } else {
+            holder.layoutActions.setVisibility(View.GONE);
+            holder.tvActioned.setVisibility(View.GONE);
+        }
+
+        // Click item -> navigate based on type
+        holder.itemView.setOnClickListener(v -> {
+            if (item.getRelatedPostId() != null) {
+                // JOIN_REQUEST → open post detail (owner can approve/reject from there)
+                // JOIN_APPROVED → open post detail (user sees "Đã tham gia" status)  
+                // JOIN_REJECTED → open post detail
+                navigateToPostDetail(item);
+            } else if (item.getRelatedUsername() != null && !item.getRelatedUsername().isEmpty()) {
+                Intent intent = new Intent(context, UserProfileActivity.class);
+                intent.putExtra("username", item.getRelatedUsername());
+                intent.putExtra("view_other", true);
+                if (item.getRelatedUserId() != null) {
+                    intent.putExtra("user_id", item.getRelatedUserId().longValue());
+                }
+                context.startActivity(intent);
+            }
+        });
+
+        // Unread indicator
+        if (!item.isRead()) {
+            holder.viewUnreadDot.setVisibility(View.VISIBLE);
+            holder.tvMessage.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            holder.viewUnreadDot.setVisibility(View.GONE);
+            holder.tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
+        }
+    }
+
+    private void showJoinRequestActions(NotifViewHolder holder, NotificationItem item) {
+        holder.layoutActions.setVisibility(View.VISIBLE);
+        holder.tvActioned.setVisibility(View.GONE);
+
+        holder.btnAccept.setText("✅ Duyệt nhanh");
+        holder.btnDecline.setText("👤 Xem Profile");
+
+        holder.btnAccept.setOnClickListener(v -> approveJoinRequest(item, holder));
+
+        holder.btnDecline.setOnClickListener(v -> {
+            Intent intent = new Intent(context, UserProfileActivity.class);
+            intent.putExtra("username", item.getRelatedUsername());
+            intent.putExtra("view_other", true);
+            if (item.getRelatedUserId() != null) {
+                intent.putExtra("user_id", item.getRelatedUserId().longValue());
+            }
+            context.startActivity(intent);
+        });
+    }
+
+    private void approveJoinRequest(NotificationItem item, NotifViewHolder holder) {
+        if (item.getRelatedPostId() == null || item.getRelatedUserId() == null) {
+            Toast.makeText(context, "Thiếu thông tin để duyệt", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        RetrofitClient.loadToken(context);
+        PostApiService postApi = RetrofitClient.getClient().create(PostApiService.class);
+
+        postApi.approveMember(item.getRelatedPostId(), item.getRelatedUserId())
+                .enqueue(new Callback<ApiResponse<Void>>() {
+                    @Override
+                    public void onResponse(Call<ApiResponse<Void>> call,
+                                           Response<ApiResponse<Void>> response) {
+                        if (response.isSuccessful()) {
+                            markNotificationActioned(item, holder,
+                                    "✅ Bạn đã duyệt " + item.getRelatedUsername());
+
+                            // Create activity group chat and add approved member
+                            createActivityChatForApprovedUser(item);
+
+                            new com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                                    .setTitle("Đã duyệt!")
+                                    .setMessage("Bạn đã duyệt " + item.getRelatedUsername() + " tham gia hoạt động.")
+                                    .setPositiveButton("OK", null)
+                                    .show();
+                        } else {
+                            Toast.makeText(context, "Lỗi khi duyệt thành viên", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                        Toast.makeText(context, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void createActivityChatForApprovedUser(NotificationItem item) {
+        if (item.getRelatedPostId() == null) return;
+
+        // Fetch post info to get title for chat room
+        com.example.weconnect.api.PostApiService postApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.PostApiService.class);
+
+        postApi.getPost(item.getRelatedPostId()).enqueue(new Callback<ApiResponse<com.example.weconnect.models.PostResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call,
+                                   Response<ApiResponse<com.example.weconnect.models.PostResponse>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    com.example.weconnect.models.PostResponse postResp = response.body().getResult();
+                    String chatTitle = postResp.getInterestTag() != null && !postResp.getInterestTag().isEmpty()
+                            ? postResp.getInterestTag() : postResp.getContent();
+                    String postId = String.valueOf(postResp.getId());
+                    String owner = postResp.getAuthorName();
+
+                    com.example.weconnect.data.FakeChatRepository chatRepo =
+                            com.example.weconnect.data.FakeChatRepository.getInstance();
+                    chatRepo.getOrCreateActivityGroupChat(postId, chatTitle, owner);
+                    if (item.getRelatedUsername() != null) {
+                        chatRepo.addMemberToActivityChat(postId, item.getRelatedUsername());
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call, Throwable t) {
+                // Fallback: create with notification info
+                String postId = String.valueOf(item.getRelatedPostId());
+                com.example.weconnect.data.FakeChatRepository chatRepo =
+                        com.example.weconnect.data.FakeChatRepository.getInstance();
+                chatRepo.getOrCreateActivityGroupChat(postId, "Hoạt động #" + postId, null);
+                if (item.getRelatedUsername() != null) {
+                    chatRepo.addMemberToActivityChat(postId, item.getRelatedUsername());
+                }
+            }
+        });
+    }
+
+    private void markNotificationActioned(NotificationItem item, NotifViewHolder holder, String message) {
+        item.setActioned(true);
+        item.setRead(true);
+
+        // Mark on backend
+        NotificationApiService notifApi = RetrofitClient.getClient()
+                .create(NotificationApiService.class);
+        notifApi.markAsActioned(item.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {}
+            @Override
+            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {}
+        });
+
+        notifyItemChanged(holder.getAdapterPosition());
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void navigateToPostDetail(NotificationItem item) {
+        if (item.getRelatedPostId() == null) return;
+
+        RetrofitClient.loadToken(context);
+        com.example.weconnect.api.PostApiService postApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.PostApiService.class);
+
+        postApi.getPost(item.getRelatedPostId()).enqueue(new Callback<ApiResponse<com.example.weconnect.models.PostResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call,
+                                   Response<ApiResponse<com.example.weconnect.models.PostResponse>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    com.example.weconnect.models.Post post = response.body().getResult().toPost();
+
+                    // If this is a JOIN_APPROVED notification, mark post as joined + create chat room
+                    if (item.getType() == NotificationItem.NotificationType.JOIN_APPROVED) {
+                        post.setJoined(true);
+
+                        // Pre-create the activity group chat so it shows in chat list
+                        com.example.weconnect.models.PostResponse postResp = response.body().getResult();
+                        String chatTitle = postResp.getInterestTag() != null && !postResp.getInterestTag().isEmpty()
+                                ? postResp.getInterestTag() : postResp.getContent();
+                        String postId = String.valueOf(postResp.getId());
+                        com.example.weconnect.data.FakeChatRepository chatRepo =
+                                com.example.weconnect.data.FakeChatRepository.getInstance();
+                        chatRepo.getOrCreateActivityGroupChat(postId, chatTitle, postResp.getAuthorName());
+                        // Add current user as member
+                        String currentUser = com.example.weconnect.data.FakePostRepository.getInstance().getCurrentUsername();
+                        if (currentUser != null) {
+                            chatRepo.addMemberToActivityChat(postId, currentUser);
+                        }
+                    }
+
+                    Intent intent = new Intent(context, com.example.weconnect.activities.PostDetailActivity.class);
+                    intent.putExtra("post", post);
+
+                    // If this is a JOIN_REQUEST, tell PostDetailActivity to show approve/reject
+                    if (item.getType() == NotificationItem.NotificationType.JOIN_REQUEST) {
+                        intent.putExtra("show_pending_actions", true);
+                        if (item.getRelatedUserId() != null) {
+                            intent.putExtra("pending_user_id", item.getRelatedUserId().longValue());
+                        }
+                        intent.putExtra("pending_username", item.getRelatedUsername());
+                    }
+
+                    context.startActivity(intent);
+                } else {
+                    Toast.makeText(context, "Không thể tải bài viết", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call, Throwable t) {
+                Toast.makeText(context, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void bindFakeNotification(NotifViewHolder holder, FakeNotificationRepository.NotificationItem item) {
         holder.tvMessage.setText(item.getMessage());
         holder.tvTime.setText(formatTime(item.getTimestamp()));
 
@@ -80,6 +383,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         if (isActionable && !item.isActioned()) {
             holder.layoutActions.setVisibility(View.VISIBLE);
             holder.tvActioned.setVisibility(View.GONE);
+
+            holder.btnAccept.setText("Chấp nhận");
+            holder.btnDecline.setText("Từ chối");
 
             holder.btnAccept.setOnClickListener(v -> {
                 if (item.getType() == NotificationType.FRIEND_REQUEST_RECEIVED) {
@@ -130,6 +436,29 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
+    private String formatCreatedAt(String createdAt) {
+        if (createdAt == null) return "";
+        try {
+            // Parse ISO datetime
+            java.time.LocalDateTime dateTime = java.time.LocalDateTime.parse(createdAt);
+            java.time.Duration duration = java.time.Duration.between(dateTime, java.time.LocalDateTime.now());
+            long minutes = duration.toMinutes();
+            long hours = duration.toHours();
+            long days = duration.toDays();
+
+            if (minutes < 1) return "Vừa xong";
+            if (minutes < 60) return minutes + " phút trước";
+            if (hours < 24) return hours + " giờ trước";
+            if (days < 7) return days + " ngày trước";
+
+            java.time.format.DateTimeFormatter formatter =
+                    java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return dateTime.format(formatter);
+        } catch (Exception e) {
+            return createdAt;
+        }
+    }
+
     private String formatTime(long timestamp) {
         long diff = System.currentTimeMillis() - timestamp;
         long minutes = diff / (60 * 1000);
@@ -148,12 +477,39 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         return items.size();
     }
 
-    // Group notifications by date
+    public void markAllRead() {
+        for (Object item : items) {
+            if (item instanceof NotificationItem) {
+                ((NotificationItem) item).setRead(true);
+            } else if (item instanceof FakeNotificationRepository.NotificationItem) {
+                ((FakeNotificationRepository.NotificationItem) item).setRead(true);
+            }
+        }
+        notifyDataSetChanged();
+    }
+
+    // Group real notifications by date
     public static List<Object> groupByDate(List<NotificationItem> notifications) {
-        List<Object> grouped = new java.util.ArrayList<>();
+        List<Object> grouped = new ArrayList<>();
         String lastDateLabel = "";
 
         for (NotificationItem item : notifications) {
+            String dateLabel = getDateLabelFromCreatedAt(item.getCreatedAt());
+            if (!dateLabel.equals(lastDateLabel)) {
+                grouped.add(dateLabel);
+                lastDateLabel = dateLabel;
+            }
+            grouped.add(item);
+        }
+        return grouped;
+    }
+
+    // Group fake notifications by date
+    public static List<Object> groupByDateFake(List<FakeNotificationRepository.NotificationItem> notifications) {
+        List<Object> grouped = new ArrayList<>();
+        String lastDateLabel = "";
+
+        for (FakeNotificationRepository.NotificationItem item : notifications) {
             String dateLabel = getDateLabel(item.getTimestamp());
             if (!dateLabel.equals(lastDateLabel)) {
                 grouped.add(dateLabel);
@@ -162,6 +518,25 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             grouped.add(item);
         }
         return grouped;
+    }
+
+    private static String getDateLabelFromCreatedAt(String createdAt) {
+        if (createdAt == null) return "Khác";
+        try {
+            java.time.LocalDateTime dateTime = java.time.LocalDateTime.parse(createdAt);
+            java.time.LocalDate date = dateTime.toLocalDate();
+            java.time.LocalDate today = java.time.LocalDate.now();
+            java.time.LocalDate yesterday = today.minusDays(1);
+
+            if (date.equals(today)) return "Hôm nay";
+            if (date.equals(yesterday)) return "Hôm qua";
+
+            java.time.format.DateTimeFormatter formatter =
+                    java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return date.format(formatter);
+        } catch (Exception e) {
+            return "Khác";
+        }
     }
 
     private static String getDateLabel(long timestamp) {

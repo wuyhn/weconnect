@@ -15,6 +15,8 @@ import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -24,17 +26,31 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.weconnect.R;
 import com.example.weconnect.adapters.PostAdapter;
 import com.example.weconnect.adapters.UserReviewAdapter;
+import com.example.weconnect.api.PostApiService;
+import com.example.weconnect.api.ReviewApiService;
+import com.example.weconnect.api.RetrofitClient;
 import com.example.weconnect.data.FakePostRepository;
 import com.example.weconnect.data.FakeSocialRepository;
+import com.example.weconnect.models.ApiResponse;
 import com.example.weconnect.models.UserProfile;
 import com.example.weconnect.models.Post;
+import com.example.weconnect.models.PostResponse;
 import com.example.weconnect.models.UserReview;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class UserProfileActivity extends AppCompatActivity {
 
@@ -69,8 +85,16 @@ public class UserProfileActivity extends AppCompatActivity {
     private TextView tvCreatePostHint;
     private TextView tvReviewsTitle;
 
+    // Related posts (from other users matching interest tags)
+    private TextView tvRelatedPostsTitle;
+    private TextView tvNoRelatedPosts;
+    private RecyclerView rvRelatedPosts;
+
     private String username;
     private FakeSocialRepository socialRepository;
+    private PostApiService postApiService;
+    private ReviewApiService reviewApiService;
+    private ActivityResultLauncher<Intent> createPostLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,12 +102,72 @@ public class UserProfileActivity extends AppCompatActivity {
         setContentView(R.layout.activity_user_profile);
 
         socialRepository = FakeSocialRepository.getInstance();
+        postApiService = RetrofitClient.getClient().create(PostApiService.class);
+        reviewApiService = RetrofitClient.getClient().create(ReviewApiService.class);
+        setupCreatePostLauncher();
         initViews();
         bindFakeUserProfile();
         setupClickListeners();
         bindSocialState();
         setupDrawerMenu();
         bindActivePosts();
+        loadRelatedPosts();
+    }
+
+    private void setupCreatePostLauncher() {
+        createPostLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Intent data = result.getData();
+                        String content = data.getStringExtra("post_content");
+                        String tag = data.getStringExtra("post_tag");
+                        String location = data.getStringExtra("post_location");
+                        int maxMembers = data.getIntExtra("post_max_members", 10);
+                        String imageUri = data.getStringExtra("post_image_uri");
+                        long endTimeMillis = data.getLongExtra("post_end_time",
+                                System.currentTimeMillis() + 24L * 60L * 60L * 1000L);
+                        createPostViaApi(content, tag, location, maxMembers, imageUri, endTimeMillis);
+                    }
+                }
+        );
+    }
+
+    private void createPostViaApi(String content, String tag, String location,
+                                  int maxMembers, String imageUri, long endTimeMillis) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("content", content);
+        body.put("interestTag", tag);
+        body.put("location", location);
+        body.put("maxMembers", maxMembers);
+        if (imageUri != null) {
+            body.put("imageUrl", imageUri);
+        }
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        body.put("startTime", isoFormat.format(new Date()));
+        body.put("endTime", isoFormat.format(new Date(endTimeMillis)));
+
+        postApiService.createPost(body).enqueue(new Callback<ApiResponse<PostResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<PostResponse>> call,
+                                   Response<ApiResponse<PostResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(UserProfileActivity.this, "Đã tạo bài đăng!", Toast.LENGTH_SHORT).show();
+                    bindActivePosts();
+                } else {
+                    String errorMsg = "Không thể tạo bài đăng";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        errorMsg = response.body().getMessage();
+                    }
+                    Toast.makeText(UserProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<PostResponse>> call, Throwable t) {
+                Toast.makeText(UserProfileActivity.this, "Lỗi kết nối server", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @Override
@@ -91,6 +175,9 @@ public class UserProfileActivity extends AppCompatActivity {
         super.onResume();
         // Refresh state khi quay lại (vd: sau khi chấp nhận kết bạn từ thông báo)
         bindSocialState();
+        // Refresh bài viết khi quay lại (vd: sau khi tạo bài mới)
+        bindActivePosts();
+        loadRelatedPosts();
     }
 
     private void initViews() {
@@ -124,6 +211,9 @@ public class UserProfileActivity extends AppCompatActivity {
         cardCreatePostProfile = findViewById(R.id.cardCreatePostProfile);
         tvCreatePostHint = findViewById(R.id.tvCreatePostHint);
         tvReviewsTitle = findViewById(R.id.tvReviewsTitle);
+        tvRelatedPostsTitle = findViewById(R.id.tvRelatedPostsTitle);
+        tvNoRelatedPosts = findViewById(R.id.tvNoRelatedPosts);
+        rvRelatedPosts = findViewById(R.id.rvRelatedPosts);
     }
 
     private void setupClickListeners() {
@@ -132,6 +222,12 @@ public class UserProfileActivity extends AppCompatActivity {
         btnViewArchive.setOnClickListener(v -> {
             Intent intent = new Intent(this, ArchivePostsActivity.class);
             intent.putExtra("username", tvUserProfileName.getText().toString());
+            long archiveUserId = getIntent().getLongExtra("user_id", -1);
+            if (archiveUserId <= 0) {
+                android.content.SharedPreferences prefs = getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+                archiveUserId = prefs.getLong("user_id", -1);
+            }
+            intent.putExtra("user_id", archiveUserId);
             startActivity(intent);
         });
 
@@ -224,55 +320,125 @@ public class UserProfileActivity extends AppCompatActivity {
 
     private void bindFakeUserProfile() {
         username = getIntent().getStringExtra("username");
+        boolean viewOther = getIntent().getBooleanExtra("view_other", false);
+        long targetUserId = getIntent().getLongExtra("user_id", -1);
+        
         if (username == null || username.isEmpty()) {
-            username = socialRepository.getCurrentUsername();
+            if (targetUserId > 0) {
+                // Try to load username from user ID
+                username = "Người dùng #" + targetUserId;
+            } else {
+                username = socialRepository.getCurrentUsername();
+            }
         }
 
-        List<String> interestTags = new ArrayList<>();
+        ivUserProfileAvatar.setImageResource(R.drawable.ic_user_placeholder);
+        tvUserProfileName.setText(username);
+        tvUserReputation.setText("92");
+        
+        rvUserReviews.setLayoutManager(new LinearLayoutManager(this));
+        // Load reviews from backend
+        loadReviewsFromBackend();
 
-        if (socialRepository.getCurrentUsername().equalsIgnoreCase(username)) {
-            interestTags.add("Cà phê");
-            interestTags.add("Chơi game");
-            interestTags.add("Xem phim");
-        } else if ("Minh Hoàng".equalsIgnoreCase(username)) {
-            interestTags.add("Đá bóng");
-            interestTags.add("Cầu lông");
-            interestTags.add("Chạy bộ");
-        } else if ("Lan Anh".equalsIgnoreCase(username)) {
-            interestTags.add("Học nhóm");
-            interestTags.add("Câu lạc bộ tiếng Anh");
-            interestTags.add("Cà phê");
-        } else if ("Thu Hương".equalsIgnoreCase(username)) {
-            interestTags.add("Yoga");
-            interestTags.add("Nấu ăn");
-            interestTags.add("Du lịch");
+        // Load interests from backend
+        loadInterestsFromBackend();
+    }
+
+    private void loadInterestsFromBackend() {
+        com.example.weconnect.api.RetrofitClient.loadToken(this);
+        String token = com.example.weconnect.api.RetrofitClient.getAuthToken();
+
+        if (token == null) {
+            // Fallback: load from SharedPreferences
+            loadInterestsFromLocal();
+            return;
+        }
+
+        com.example.weconnect.api.UserApiService apiService = 
+                com.example.weconnect.api.RetrofitClient.getClient()
+                        .create(com.example.weconnect.api.UserApiService.class);
+
+        // Determine if viewing own profile or someone else's
+        boolean isOwnProfile = socialRepository.getCurrentUsername().equalsIgnoreCase(username);
+
+        if (isOwnProfile) {
+            apiService.getInterests().enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<java.util.List<String>>>() {
+                @Override
+                public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call,
+                                       retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.List<String>>> response) {
+                    if (response.isSuccessful() && response.body() != null
+                            && response.body().getResult() != null) {
+                        displayInterests(response.body().getResult());
+                    } else {
+                        loadInterestsFromLocal();
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call, Throwable t) {
+                    loadInterestsFromLocal();
+                }
+            });
         } else {
-            interestTags.add("Cà phê");
-            interestTags.add("Lập trình");
+            // For other users, try to load from their profile
+            long targetUserId = getIntent().getLongExtra("user_id", -1);
+            if (targetUserId > 0) {
+                apiService.getUserProfile(targetUserId).enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> call,
+                                           retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> response) {
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().getResult() != null) {
+                            java.util.Map<String, Object> profile = response.body().getResult();
+                            String interestTags = profile.get("interestTags") != null
+                                    ? profile.get("interestTags").toString() : "";
+                            if (!interestTags.isEmpty()) {
+                                displayInterests(java.util.Arrays.asList(interestTags.split(",")));
+                            } else {
+                                displayInterests(new ArrayList<>());
+                            }
+                            // Update profile info
+                            String fullName = profile.get("fullName") != null
+                                    ? profile.get("fullName").toString() : username;
+                            tvUserProfileName.setText(fullName);
+                        } else {
+                            loadInterestsFromLocal();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> call, Throwable t) {
+                        loadInterestsFromLocal();
+                    }
+                });
+            } else {
+                loadInterestsFromLocal();
+            }
         }
+    }
 
-        List<UserReview> reviews = new ArrayList<>();
-        reviews.add(new UserReview("Minh Hoàng", "Coffee Meetup", "Tích cực", "Thân thiện, dễ phối hợp."));
-        reviews.add(new UserReview("Lan Anh", "Design and Code Crew", "Đáng tin cậy", "Rất năng động, truyền cảm hứng cho nhóm."));
-        reviews.add(new UserReview("Hải Đăng", "Đá bóng cuối tuần", "Hợp tác tốt", "Lịch sự, đúng giờ."));
+    private void loadInterestsFromLocal() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String saved = prefs.getString("user_interests", "");
+        if (!saved.isEmpty()) {
+            displayInterests(java.util.Arrays.asList(saved.split(",")));
+        } else {
+            // Final fallback
+            List<String> defaultTags = new ArrayList<>();
+            defaultTags.add("☕ Cà phê");
+            defaultTags.add("💬 Giao lưu");
+            displayInterests(defaultTags);
+        }
+    }
 
-        UserProfile userProfile = new UserProfile(
-                username,
-                R.drawable.ic_user_placeholder,
-                0f,
-                92,
-                interestTags,
-                reviews
-        );
-
-        ivUserProfileAvatar.setImageResource(userProfile.getAvatarResId());
-        tvUserProfileName.setText(userProfile.getUsername());
-        tvUserReputation.setText(String.valueOf(userProfile.getReputationScore()));
+    private void displayInterests(List<String> interestTags) {
         chipGroupUserInterests.removeAllViews();
-
-        for (String tag : userProfile.getInterestTags()) {
+        for (String tag : interestTags) {
+            String trimmed = tag.trim();
+            if (trimmed.isEmpty()) continue;
             Chip chip = new Chip(this);
-            chip.setText(tag);
+            chip.setText(trimmed);
             chip.setClickable(false);
             chip.setCheckable(false);
             chip.setFocusable(false);
@@ -283,14 +449,51 @@ public class UserProfileActivity extends AppCompatActivity {
             chip.setChipStrokeWidth(0f);
             chipGroupUserInterests.addView(chip);
         }
-
-        rvUserReviews.setLayoutManager(new LinearLayoutManager(this));
-        rvUserReviews.setAdapter(new UserReviewAdapter(userProfile.getReviews()));
     }
 
     private void bindActivePosts() {
-        List<Post> activePosts = FakePostRepository.getInstance().getActivePostsForUser(username);
+        long targetUserId = getIntent().getLongExtra("user_id", -1);
+        if (targetUserId <= 0) {
+            // Own profile - load from shared prefs
+            android.content.SharedPreferences prefs = getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+            targetUserId = prefs.getLong("user_id", -1);
+        }
 
+        if (targetUserId <= 0) {
+            // Fallback to fake data
+            showActivePosts(FakePostRepository.getInstance().getActivePostsForUser(username));
+            return;
+        }
+
+        final long userId = targetUserId;
+        // Backend getUserActivePosts đã lọc sẵn: archived=false AND endTime > now
+        // Không cần lọc lại ở frontend
+        postApiService.getUserPosts(userId).enqueue(new Callback<ApiResponse<List<PostResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<PostResponse>>> call,
+                                   Response<ApiResponse<List<PostResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    List<PostResponse> allResponses = response.body().getResult();
+                    List<Post> userPosts = new ArrayList<>();
+                    if (allResponses != null) {
+                        for (PostResponse pr : allResponses) {
+                            userPosts.add(pr.toPost());
+                        }
+                    }
+                    showActivePosts(userPosts);
+                } else {
+                    showActivePosts(FakePostRepository.getInstance().getActivePostsForUser(username));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<PostResponse>>> call, Throwable t) {
+                showActivePosts(FakePostRepository.getInstance().getActivePostsForUser(username));
+            }
+        });
+    }
+
+    private void showActivePosts(List<Post> activePosts) {
         if (activePosts.isEmpty()) {
             tvNoActivePosts.setVisibility(View.VISIBLE);
             rvActivePostsProfile.setVisibility(View.GONE);
@@ -302,10 +505,121 @@ public class UserProfileActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Load bài viết gợi ý từ người dùng khác dựa trên sở thích chung.
+     * Gọi API getActivePosts rồi lọc: cùng tag sở thích, khác tác giả.
+     */
+    private void loadRelatedPosts() {
+        // Lấy sở thích của user hiện tại
+        android.content.SharedPreferences prefs = getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String savedInterests = prefs.getString("user_interests", "");
+
+        if (savedInterests.isEmpty()) {
+            // Thử load từ API trước
+            RetrofitClient.loadToken(this);
+            com.example.weconnect.api.UserApiService userApi =
+                    RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
+            userApi.getInterests().enqueue(new retrofit2.Callback<ApiResponse<java.util.List<String>>>() {
+                @Override
+                public void onResponse(retrofit2.Call<ApiResponse<java.util.List<String>>> call,
+                                       retrofit2.Response<ApiResponse<java.util.List<String>>> response) {
+                    if (response.isSuccessful() && response.body() != null
+                            && response.body().getResult() != null
+                            && !response.body().getResult().isEmpty()) {
+                        java.util.List<String> interests = response.body().getResult();
+                        prefs.edit().putString("user_interests", String.join(",", interests)).apply();
+                        fetchAndFilterRelatedPosts(interests);
+                    } else {
+                        hideRelatedPosts();
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<ApiResponse<java.util.List<String>>> call, Throwable t) {
+                    hideRelatedPosts();
+                }
+            });
+            return;
+        }
+
+        java.util.List<String> interests = java.util.Arrays.asList(savedInterests.split(","));
+        fetchAndFilterRelatedPosts(interests);
+    }
+
+    private void fetchAndFilterRelatedPosts(java.util.List<String> userInterests) {
+        // Tạo set sở thích để so sánh nhanh
+        java.util.Set<String> interestSet = new java.util.HashSet<>();
+        for (String tag : userInterests) {
+            String trimmed = tag.trim();
+            if (!trimmed.isEmpty()) interestSet.add(trimmed.toLowerCase());
+        }
+
+        if (interestSet.isEmpty()) {
+            hideRelatedPosts();
+            return;
+        }
+
+        // Dùng username của profile đang xem để loại bỏ bài của chính họ
+        postApiService.getActivePosts().enqueue(new Callback<ApiResponse<java.util.List<PostResponse>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<java.util.List<PostResponse>>> call,
+                                   Response<ApiResponse<java.util.List<PostResponse>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    java.util.List<PostResponse> allPosts = response.body().getResult();
+                    java.util.List<Post> related = new ArrayList<>();
+                    if (allPosts != null) {
+                        for (PostResponse pr : allPosts) {
+                            // Bỏ qua bài của chính user đang xem
+                            if (pr.getAuthorName() != null
+                                    && pr.getAuthorName().equalsIgnoreCase(username)) {
+                                continue;
+                            }
+                            // Lọc bài có tag trùng sở thích
+                            if (pr.getInterestTag() != null
+                                    && interestSet.contains(pr.getInterestTag().trim().toLowerCase())) {
+                                related.add(pr.toPost());
+                            }
+                        }
+                    }
+                    showRelatedPosts(related);
+                } else {
+                    hideRelatedPosts();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<java.util.List<PostResponse>>> call, Throwable t) {
+                hideRelatedPosts();
+            }
+        });
+    }
+
+    private void showRelatedPosts(java.util.List<Post> relatedPosts) {
+        if (relatedPosts.isEmpty()) {
+            hideRelatedPosts();
+            return;
+        }
+        tvRelatedPostsTitle.setVisibility(View.VISIBLE);
+        tvNoRelatedPosts.setVisibility(View.GONE);
+        rvRelatedPosts.setVisibility(View.VISIBLE);
+        rvRelatedPosts.setLayoutManager(new LinearLayoutManager(this));
+        rvRelatedPosts.setAdapter(new PostAdapter(this, relatedPosts));
+    }
+
+    private void hideRelatedPosts() {
+        tvRelatedPostsTitle.setVisibility(View.GONE);
+        tvNoRelatedPosts.setVisibility(View.GONE);
+        rvRelatedPosts.setVisibility(View.GONE);
+    }
+
     private void bindSocialState() {
+        boolean viewOther = getIntent().getBooleanExtra("view_other", false);
         FakeSocialRepository.SocialState state = socialRepository.getState(username);
 
-        if (state.isSelfProfile()) {
+        // If explicitly viewing another user from notifications, force it
+        boolean isOwnProfile = state.isSelfProfile() && !viewOther;
+
+        if (isOwnProfile) {
             // Hồ sơ của mình: ẩn close, hiện menu ☰, hiện bạn bè + kho lưu trữ
             ivBackUserProfile.setVisibility(View.GONE);
             ivMenuProfile.setVisibility(View.VISIBLE);
@@ -324,7 +638,8 @@ public class UserProfileActivity extends AppCompatActivity {
             // Show create post section for self profile
             cardCreatePostProfile.setVisibility(View.VISIBLE);
             cardCreatePostProfile.setOnClickListener(v -> {
-                startActivity(new Intent(this, CreatePostActivity.class));
+                Intent intent = new Intent(this, CreatePostActivity.class);
+                createPostLauncher.launch(intent);
             });
 
             // Show interests and posts
@@ -678,12 +993,94 @@ public class UserProfileActivity extends AppCompatActivity {
                 return;
             }
             sheet.dismiss();
-            Toast.makeText(this, "Đã gửi đánh giá " + (int) ratingBar.getRating() + " sao cho " + username, Toast.LENGTH_SHORT).show();
+            submitReviewToBackend((int) ratingBar.getRating(), etComment.getText().toString().trim());
         });
         root.addView(btnSubmit);
 
         sheet.setContentView(root);
         sheet.show();
+    }
+
+    private void submitReviewToBackend(int stars, String comment) {
+        long reviewedUserId = getIntent().getLongExtra("user_id", -1);
+        if (reviewedUserId <= 0) {
+            Toast.makeText(this, "Không thể gửi đánh giá", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Map stars to reputation label
+        String[] labels = {"Cần cải thiện", "Trung bình", "Tích cực", "Đáng tin cậy", "Xuất sắc"};
+        String reputationLabel = labels[Math.min(stars - 1, labels.length - 1)];
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("reviewedUserId", reviewedUserId);
+        body.put("activityName", "Hoạt động chung");
+        body.put("reputationLabel", reputationLabel);
+        body.put("comment", comment.isEmpty() ? "Đánh giá " + stars + " sao" : comment);
+
+        reviewApiService.createReview(body).enqueue(new Callback<ApiResponse<Void>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                if (response.isSuccessful()) {
+                    Toast.makeText(UserProfileActivity.this,
+                            "Đã gửi đánh giá " + stars + " sao cho " + username,
+                            Toast.LENGTH_SHORT).show();
+                    // Refresh reviews
+                    loadReviewsFromBackend();
+                } else {
+                    String errorMsg = "Không thể gửi đánh giá";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        errorMsg = response.body().getMessage();
+                    }
+                    Toast.makeText(UserProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadReviewsFromBackend() {
+        long targetUserId = getIntent().getLongExtra("user_id", -1);
+        if (targetUserId <= 0) {
+            android.content.SharedPreferences prefs = getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+            targetUserId = prefs.getLong("user_id", -1);
+        }
+        if (targetUserId <= 0) {
+            // Fallback: show empty
+            rvUserReviews.setAdapter(new UserReviewAdapter(new ArrayList<>()));
+            return;
+        }
+
+        reviewApiService.getReviews(targetUserId).enqueue(new Callback<ApiResponse<List<Map<String, Object>>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<List<Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    List<Map<String, Object>> reviewMaps = response.body().getResult();
+                    List<UserReview> reviews = new ArrayList<>();
+                    for (Map<String, Object> map : reviewMaps) {
+                        String reviewerName = map.get("reviewerName") != null ? map.get("reviewerName").toString() : "Ẩn danh";
+                        String activityName = map.get("activityName") != null ? map.get("activityName").toString() : "";
+                        String reputationLabel = map.get("reputationLabel") != null ? map.get("reputationLabel").toString() : "";
+                        String reviewComment = map.get("comment") != null ? map.get("comment").toString() : "";
+                        reviews.add(new UserReview(reviewerName, activityName, reputationLabel, reviewComment));
+                    }
+                    rvUserReviews.setAdapter(new UserReviewAdapter(reviews));
+                } else {
+                    rvUserReviews.setAdapter(new UserReviewAdapter(new ArrayList<>()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<Map<String, Object>>>> call, Throwable t) {
+                rvUserReviews.setAdapter(new UserReviewAdapter(new ArrayList<>()));
+            }
+        });
     }
 
     private void showReportUserDialog() {

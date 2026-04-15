@@ -138,6 +138,15 @@ public class PostController {
                 .result(postService.getMembers(id)).build());
     }
 
+    // Danh sách chờ duyệt
+    @GetMapping("/{id}/pending")
+    public ResponseEntity<?> getPendingMembers(@PathVariable Long id, Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Thành công")
+                .result(postService.getPendingMembers(id)).build());
+    }
+
     // Bài đăng của user
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getUserPosts(@PathVariable Long userId, Authentication authentication) {

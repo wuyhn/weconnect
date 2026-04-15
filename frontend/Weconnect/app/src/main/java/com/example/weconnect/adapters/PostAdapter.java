@@ -2,6 +2,8 @@ package com.example.weconnect.adapters;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +15,8 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.io.InputStream;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -63,10 +67,24 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.ivAvatar.setOnClickListener(v -> openUserProfile(post.getUsername()));
         holder.tvUsername.setOnClickListener(v -> openUserProfile(post.getUsername()));
 
-        // Post image: URI from gallery or resource id
+        // Post image: URI từ thư viện hoặc resource id
         if (post.getPostImageUri() != null && !post.getPostImageUri().isEmpty()) {
-            holder.cvPostImage.setVisibility(View.VISIBLE);
-            holder.ivPostImage.setImageURI(Uri.parse(post.getPostImageUri()));
+            // Load ảnh bằng Bitmap thủ công để bắt lỗi quyền truy cập
+            try {
+                Uri imageUri = Uri.parse(post.getPostImageUri());
+                InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+                if (inputStream != null) {
+                    Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                    inputStream.close();
+                    holder.cvPostImage.setVisibility(View.VISIBLE);
+                    holder.ivPostImage.setImageBitmap(bitmap);
+                } else {
+                    holder.cvPostImage.setVisibility(View.GONE);
+                }
+            } catch (Exception e) {
+                // URI hết quyền truy cập → ẩn ảnh thay vì crash
+                holder.cvPostImage.setVisibility(View.GONE);
+            }
         } else if (post.getImageResId() != 0) {
             holder.cvPostImage.setVisibility(View.VISIBLE);
             holder.ivPostImage.setImageResource(post.getImageResId());
@@ -109,6 +127,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.btnViewMembers.setOnClickListener(v -> {
             Intent intent = new Intent(context, ParticipantsActivity.class);
             intent.putExtra("post_id", post.getId());
+            intent.putExtra("post_author", post.getUsername());
             intent.putExtra("member_count", post.getMemberCount());
             intent.putExtra("max_members", post.getMaxMembers());
             context.startActivity(intent);
@@ -518,11 +537,43 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 holder.btnJoinGroup.setEnabled(true);
                 holder.btnJoinGroup.setAlpha(1.0f);
                 holder.btnJoinGroup.setOnClickListener(v -> {
-                    post.setPendingApproval(true);
-                    Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
-                    holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
-                    holder.btnJoinGroup.setEnabled(false);
-                    holder.btnJoinGroup.setAlpha(0.6f);
+                    // Try real API first
+                    com.example.weconnect.api.RetrofitClient.loadToken(context);
+                    String token = com.example.weconnect.api.RetrofitClient.getAuthToken();
+                    
+                    if (token != null && post.getId() != null && !post.getId().isEmpty()) {
+                        com.example.weconnect.api.PostApiService postApi = 
+                                com.example.weconnect.api.RetrofitClient.getClient()
+                                        .create(com.example.weconnect.api.PostApiService.class);
+                        
+                        postApi.joinPost(Long.parseLong(post.getId())).enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<Void>> call,
+                                                   retrofit2.Response<com.example.weconnect.models.ApiResponse<Void>> response) {
+                                if (response.isSuccessful()) {
+                                    post.setPendingApproval(true);
+                                    holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
+                                    holder.btnJoinGroup.setEnabled(false);
+                                    holder.btnJoinGroup.setAlpha(0.6f);
+                                    Toast.makeText(context, "Đã gửi yêu cầu tham gia!", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(context, "Lỗi khi gửi yêu cầu. Thử lại!", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<Void>> call, Throwable t) {
+                                Toast.makeText(context, "Lỗi kết nối. Thử lại!", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        // Fallback: local only
+                        post.setPendingApproval(true);
+                        Toast.makeText(context, "Đã gửi yêu cầu tham gia " + post.getUsername(), Toast.LENGTH_SHORT).show();
+                        holder.btnJoinGroup.setText("⏳ Đang chờ duyệt");
+                        holder.btnJoinGroup.setEnabled(false);
+                        holder.btnJoinGroup.setAlpha(0.6f);
+                    }
                 });
             }
         }

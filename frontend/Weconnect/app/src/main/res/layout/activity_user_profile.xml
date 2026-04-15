@@ -440,6 +440,38 @@
                     android:layout_height="wrap_content"
                     android:nestedScrollingEnabled="false" />
 
+                <!-- Related Posts Section (matching interest tags from other users) -->
+                <TextView
+                    android:id="@+id/tvRelatedPostsTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="10dp"
+                    android:text="Gợi ý cho bạn"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvNoRelatedPosts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center"
+                    android:padding="20dp"
+                    android:text="Chưa có bài viết gợi ý nào"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvRelatedPosts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/tvReviewsTitle"
                     android:layout_width="wrap_content"

@@ -201,67 +201,104 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="8dp"
-                        android:text="Sở thích"
+                        android:text="Sở thích (tối đa 5)"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp" />
 
+                    <!-- Thể thao -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="🏆 Thể thao"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
                     <com.google.android.material.chip.ChipGroup
-                        android:id="@+id/chipGroupInterests"
+                        android:id="@+id/chipGroupSport"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="4dp"
+                        app:singleSelection="false" />
+
+                    <!-- Giải trí -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="🎉 Giải trí"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupEntertainment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="4dp"
+                        app:singleSelection="false" />
+
+                    <!-- Sáng tạo -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="🎨 Sáng tạo"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupCreative"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="4dp"
+                        app:singleSelection="false" />
+
+                    <!-- Học tập -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="📚 Học tập"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupStudy"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="4dp"
+                        app:singleSelection="false" />
+
+                    <!-- Xã hội -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="🌍 Xã hội"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupSocial"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="16dp"
                         app:chipSpacingHorizontal="8dp"
-                        app:chipSpacingVertical="8dp"
-                        app:singleSelection="false">
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Coffee meetup" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Gaming" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Movies" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Football" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Badminton" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Running" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Study group" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="English club" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Design and code" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Music" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Photography" />
-
-                        <com.google.android.material.chip.Chip
-                            style="@style/CustomChipChoice"
-                            android:text="Travel" />
-                    </com.google.android.material.chip.ChipGroup>
+                        app:chipSpacingVertical="4dp"
+                        app:singleSelection="false" />
 
                     <!-- Bio -->
                     <com.google.android.material.textfield.TextInputLayout

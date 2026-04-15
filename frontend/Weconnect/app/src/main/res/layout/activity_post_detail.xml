@@ -169,6 +169,78 @@
                         app:backgroundTint="@color/primary_pink"
                         app:cornerRadius="24dp" />
 
+                    <!-- Pending approval section (shown when navigated from JOIN_REQUEST notification) -->
+                    <LinearLayout
+                        android:id="@+id/layoutPendingApproval"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#E8E4DE"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:id="@+id/tvPendingLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Có người muốn tham gia"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:gravity="center" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutApproveReject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnApproveJoin"
+                                style="@style/Widget.MaterialComponents.Button"
+                                android:layout_width="0dp"
+                                android:layout_height="44dp"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="8dp"
+                                android:text="✅ Chấp nhận"
+                                android:textAllCaps="false"
+                                android:textSize="14sp"
+                                app:backgroundTint="#4CAF50"
+                                app:cornerRadius="22dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRejectJoin"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="44dp"
+                                android:layout_weight="1"
+                                android:text="❌ Từ chối"
+                                android:textAllCaps="false"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp"
+                                app:cornerRadius="22dp"
+                                app:strokeColor="#BDBDBD"
+                                app:strokeWidth="1dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvApprovalResult"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:textStyle="italic"
+                            android:textColor="@color/text_secondary"
+                            android:visibility="gone" />
+                    </LinearLayout>
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

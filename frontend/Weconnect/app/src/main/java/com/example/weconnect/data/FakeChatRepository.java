@@ -174,6 +174,60 @@ public class FakeChatRepository {
         return null;
     }
 
+    /**
+     * Tạo hoặc lấy nhóm chat hoạt động (TYPE_GROUP) dựa trên postId.
+     * Khi user được approve tham gia hoạt động, sẽ tạo room mới hoặc add member vào room cũ.
+     */
+    public ChatRoom getOrCreateActivityGroupChat(String postId, String postTitle, String ownerUsername) {
+        String roomId = "room_activity_" + postId;
+        ChatRoom existing = getRoomById(roomId);
+        if (existing != null) return existing;
+
+        // Also check by title for backwards compatibility
+        for (ChatRoom room : chatRooms) {
+            if (ChatRoom.TYPE_GROUP.equals(room.getType()) &&
+                    room.getTitle() != null &&
+                    room.getTitle().equalsIgnoreCase(postTitle)) {
+                return room;
+            }
+        }
+
+        String currentUser = FakePostRepository.getInstance().getCurrentUsername();
+        List<String> members = new ArrayList<>();
+        if (ownerUsername != null && !ownerUsername.isEmpty()) {
+            members.add(ownerUsername);
+        }
+        if (currentUser != null && !members.contains(currentUser)) {
+            members.add(currentUser);
+        }
+
+        ChatRoom newRoom = new ChatRoom(
+                roomId,
+                postTitle,
+                ChatRoom.TYPE_GROUP,
+                R.drawable.ic_user_placeholder,
+                true,
+                "",
+                new ArrayList<>(),
+                ownerUsername,
+                members,
+                new ArrayList<>()
+        );
+        chatRooms.add(0, newRoom);
+        return newRoom;
+    }
+
+    /**
+     * Add a member to an existing activity group chat.
+     */
+    public void addMemberToActivityChat(String postId, String username) {
+        String roomId = "room_activity_" + postId;
+        ChatRoom room = getRoomById(roomId);
+        if (room != null) {
+            room.addMember(username);
+        }
+    }
+
     private void seedRooms() {
         String currentUser = "Quỳnh Nguyễn";
 

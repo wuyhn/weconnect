@@ -22,6 +22,7 @@ public class Notification {
         FRIEND_ACCEPTED,
         JOIN_REQUEST,
         JOIN_APPROVED,
+        JOIN_REJECTED,
         GENERAL
     }
 
@@ -40,6 +41,12 @@ public class Notification {
     private String message;
 
     private String relatedUsername;
+
+    @Column(name = "related_post_id")
+    private Long relatedPostId;
+
+    @Column(name = "related_user_id")
+    private Long relatedUserId;
 
     @Column(name = "is_read", columnDefinition = "BOOLEAN DEFAULT false")
     private boolean isRead;

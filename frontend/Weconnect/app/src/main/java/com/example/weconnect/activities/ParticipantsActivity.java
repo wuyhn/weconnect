@@ -3,6 +3,7 @@ package com.example.weconnect.activities;
 import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -10,11 +11,22 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.adapters.ParticipantAdapter;
+import com.example.weconnect.api.PostApiService;
+import com.example.weconnect.api.RetrofitClient;
+import com.example.weconnect.models.ApiResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ParticipantsActivity extends AppCompatActivity {
+
+    private RecyclerView rvParticipants;
+    private TextView tvCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,37 +34,114 @@ public class ParticipantsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_participants);
 
         ImageView ivClose = findViewById(R.id.ivCloseParticipants);
-        TextView tvCount = findViewById(R.id.tvParticipantsCount);
-        RecyclerView rvParticipants = findViewById(R.id.rvParticipants);
+        tvCount = findViewById(R.id.tvParticipantsCount);
+        rvParticipants = findViewById(R.id.rvParticipants);
 
         int memberCount = getIntent().getIntExtra("member_count", 0);
         int maxMembers = getIntent().getIntExtra("max_members", 0);
+        String postAuthor = getIntent().getStringExtra("post_author");
+        String postId = getIntent().getStringExtra("post_id");
 
         tvCount.setText("👥 " + memberCount + "/" + maxMembers);
-
-        // Generate fake participants
-        List<ParticipantAdapter.Participant> participants = generateFakeParticipants(memberCount);
-
         rvParticipants.setLayoutManager(new LinearLayoutManager(this));
-        rvParticipants.setAdapter(new ParticipantAdapter(this, participants));
 
         ivClose.setOnClickListener(v -> finish());
+
+        // Load real members from API
+        loadMembersFromApi(postId, postAuthor, memberCount);
     }
 
-    private List<ParticipantAdapter.Participant> generateFakeParticipants(int count) {
-        String[] fakeNames = {
-                "Minh Hoang", "Lan Anh", "Duc Anh", "Thi Tuyet",
-                "Hai Dang", "Quynh Nguyen", "Van Khanh", "Thu Huong",
-                "Quoc Bao", "Thanh Nhan"
-        };
-
-        List<ParticipantAdapter.Participant> list = new ArrayList<>();
-        for (int i = 0; i < Math.min(count, fakeNames.length); i++) {
-            list.add(new ParticipantAdapter.Participant(
-                    fakeNames[i],
-                    R.drawable.ic_user_placeholder
-            ));
+    private void loadMembersFromApi(String postId, String postAuthor, int memberCount) {
+        if (postId == null || postId.isEmpty()) {
+            showFallback(postAuthor, memberCount);
+            return;
         }
-        return list;
+
+        long id;
+        try {
+            id = Long.parseLong(postId);
+        } catch (NumberFormatException e) {
+            showFallback(postAuthor, memberCount);
+            return;
+        }
+
+        RetrofitClient.loadToken(this);
+        PostApiService postApi = RetrofitClient.getClient().create(PostApiService.class);
+
+        postApi.getMembers(id).enqueue(new Callback<ApiResponse<List<Map<String, Object>>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<List<Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    List<Map<String, Object>> membersData = response.body().getResult();
+                    List<ParticipantAdapter.Participant> participants = new ArrayList<>();
+
+                    // Always show post author first as organizer
+                    boolean authorAdded = false;
+                    for (Map<String, Object> member : membersData) {
+                        String name = member.get("fullName") != null
+                                ? member.get("fullName").toString()
+                                : (member.get("username") != null ? member.get("username").toString() : "Người dùng");
+                        String status = member.get("status") != null
+                                ? member.get("status").toString() : "";
+
+                        // Only show APPROVED members
+                        if (!"APPROVED".equalsIgnoreCase(status)) continue;
+
+                        boolean isAuthor = (postAuthor != null && name.equalsIgnoreCase(postAuthor));
+                        if (isAuthor) {
+                            participants.add(0, new ParticipantAdapter.Participant(
+                                    name + " (Người tổ chức)", R.drawable.ic_user_placeholder));
+                            authorAdded = true;
+                        } else {
+                            participants.add(new ParticipantAdapter.Participant(
+                                    name, R.drawable.ic_user_placeholder));
+                        }
+                    }
+
+                    // If author wasn't in the members list, add them at the top
+                    if (!authorAdded && postAuthor != null && !postAuthor.isEmpty()) {
+                        participants.add(0, new ParticipantAdapter.Participant(
+                                postAuthor + " (Người tổ chức)", R.drawable.ic_user_placeholder));
+                    }
+
+                    // Update count with real data
+                    int totalMembers = participants.size();
+                    int maxMembers = getIntent().getIntExtra("max_members", 0);
+                    tvCount.setText("👥 " + totalMembers + "/" + maxMembers);
+
+                    if (participants.isEmpty()) {
+                        participants.add(new ParticipantAdapter.Participant(
+                                "Chưa có thành viên nào", R.drawable.ic_user_placeholder));
+                    }
+
+                    rvParticipants.setAdapter(new ParticipantAdapter(ParticipantsActivity.this, participants));
+                } else {
+                    showFallback(postAuthor, getIntent().getIntExtra("member_count", 0));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<Map<String, Object>>>> call, Throwable t) {
+                showFallback(postAuthor, getIntent().getIntExtra("member_count", 0));
+            }
+        });
+    }
+
+    private void showFallback(String postAuthor, int memberCount) {
+        List<ParticipantAdapter.Participant> participants = new ArrayList<>();
+
+        if (postAuthor != null && !postAuthor.isEmpty()) {
+            participants.add(new ParticipantAdapter.Participant(
+                    postAuthor + " (Người tổ chức)", R.drawable.ic_user_placeholder));
+        }
+
+        if (participants.isEmpty()) {
+            participants.add(new ParticipantAdapter.Participant(
+                    "Chưa có thành viên nào", R.drawable.ic_user_placeholder));
+        }
+
+        rvParticipants.setAdapter(new ParticipantAdapter(this, participants));
     }
 }
