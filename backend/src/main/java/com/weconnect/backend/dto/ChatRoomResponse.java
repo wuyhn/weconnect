@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ChatRoomResponse {
     private Long id;
+    private Long postId;
     private String title;
     private String type;
     private Long ownerId;

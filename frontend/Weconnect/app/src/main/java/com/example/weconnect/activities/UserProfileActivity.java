@@ -928,11 +928,12 @@ public class UserProfileActivity extends AppCompatActivity {
 
         // === Hồ sơ người khác ===
         ivBackUserProfile.setVisibility(View.VISIBLE);
-        ivMenuProfile.setVisibility(View.GONE);
+        ivMenuProfile.setVisibility(View.VISIBLE); // 3-dots menu ở góc phải header
         tvFriendCount.setVisibility(View.GONE);
         btnViewArchive.setVisibility(View.GONE);
         layoutSocialButtons.setVisibility(View.VISIBLE);
         layoutRateReport.setVisibility(View.VISIBLE);
+        btnReportUser.setVisibility(View.GONE); // Ẩn nút Report cũ, dùng menu 3 chấm thay
         footerNavigationProfile.setVisibility(View.GONE);
         cardCreatePostProfile.setVisibility(View.GONE);
 
@@ -945,7 +946,25 @@ public class UserProfileActivity extends AppCompatActivity {
 
         loadSuggestedUsers();
         btnRateUser.setOnClickListener(v -> showRateUserDialog());
-        btnReportUser.setOnClickListener(v -> showReportUserDialog());
+
+        // 3-dots menu ở header (ivMenuProfile) cho profile người khác
+        ivMenuProfile.setOnClickListener(v -> {
+            android.widget.PopupMenu popup = new android.widget.PopupMenu(this, ivMenuProfile);
+            popup.getMenu().add(0, 1, 0, "🚫 Chặn người dùng");
+            popup.getMenu().add(0, 2, 1, "⚠️ Báo cáo");
+            popup.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 1) {
+                    showBlockUserConfirmDialog();
+                    return true;
+                } else if (item.getItemId() == 2) {
+                    showReportUserDialog();
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
+        });
+
         ivUserProfileAvatar.setOnClickListener(null);
         ivUserProfileAvatar.setClickable(false);
 
@@ -985,13 +1004,17 @@ public class UserProfileActivity extends AppCompatActivity {
             public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
                 String status = "NONE";
                 if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
-                    status = response.body().getResult();
+                    // Gson type erasure: result could be any object, force toString and clean
+                    status = String.valueOf(response.body().getResult())
+                            .trim().replace("\"", "");
                 }
+                android.util.Log.d("UserProfile", "Friend status for userId=" + otherUserId + ": [" + status + "]");
                 setupFriendButton(status);
             }
 
             @Override
             public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
+                android.util.Log.e("UserProfile", "getFriendStatus failed", t);
                 setupFriendButton("NONE");
             }
         });
@@ -1050,25 +1073,11 @@ public class UserProfileActivity extends AppCompatActivity {
                 break;
 
             case "PENDING_RECEIVED":
-                btnAddFriend.setText("Chấp nhận kết bạn");
+                btnAddFriend.setText("Phản hồi");
                 btnAddFriend.setEnabled(true);
                 btnAddFriend.setAlpha(1.0f);
                 btnMessage.setVisibility(View.GONE);
-                btnAddFriend.setOnClickListener(v -> {
-                    friendApiService.acceptFriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
-                        @Override
-                        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                            if (response.isSuccessful()) {
-                                Toast.makeText(UserProfileActivity.this, "Đã chấp nhận kết bạn!", Toast.LENGTH_SHORT).show();
-                                setupFriendButton("FRIEND");
-                            }
-                        }
-                        @Override
-                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                            Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                });
+                btnAddFriend.setOnClickListener(v -> showFriendResponseDialog());
                 break;
 
             default: // NONE
@@ -1498,6 +1507,107 @@ public class UserProfileActivity extends AppCompatActivity {
                 rvUserReviews.setAdapter(new UserReviewAdapter(new ArrayList<>()));
             }
         });
+    }
+
+    private void showFriendResponseDialog() {
+        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(getResources().getColor(R.color.card_surface, null));
+        root.setPadding(0, 0, 0, 48);
+
+        // Title
+        TextView header = new TextView(this);
+        header.setText("Phản hồi lời mời kết bạn");
+        header.setTextSize(20);
+        header.setTextColor(getResources().getColor(R.color.primary_pink, null));
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setGravity(android.view.Gravity.CENTER);
+        header.setPadding(0, 48, 0, 24);
+        root.addView(header);
+
+        // Divider
+        View div = new View(this);
+        div.setBackgroundColor(0xFFE8E4DE);
+        div.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 2));
+        root.addView(div);
+
+        // Option: Xác nhận
+        LinearLayout rowAccept = createOptionRow("✅", "Xác nhận",
+                "Chấp nhận lời mời kết bạn", getResources().getColor(R.color.text_primary, null));
+        rowAccept.setOnClickListener(v -> {
+            sheet.dismiss();
+            friendApiService.acceptFriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                @Override
+                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                    if (response.isSuccessful()) {
+                        Toast.makeText(UserProfileActivity.this, "Đã chấp nhận kết bạn!", Toast.LENGTH_SHORT).show();
+                        setupFriendButton("FRIEND");
+                    }
+                }
+                @Override
+                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                    Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+        root.addView(rowAccept);
+
+        // Option: Từ chối
+        LinearLayout rowDecline = createOptionRow("❌", "Từ chối",
+                "Từ chối lời mời kết bạn", getResources().getColor(R.color.danger_red, null));
+        rowDecline.setOnClickListener(v -> {
+            sheet.dismiss();
+            friendApiService.declineFriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                @Override
+                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                    if (response.isSuccessful()) {
+                        Toast.makeText(UserProfileActivity.this, "Đã từ chối lời mời", Toast.LENGTH_SHORT).show();
+                        setupFriendButton("NONE");
+                    }
+                }
+                @Override
+                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                    Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+        root.addView(rowDecline);
+
+        sheet.setContentView(root);
+        sheet.show();
+    }
+
+    private void showBlockUserConfirmDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Chặn người dùng")
+                .setMessage("Bạn có chắc muốn chặn " + username + "? Người này sẽ không thể nhắn tin hoặc xem bài viết của bạn.")
+                .setPositiveButton("Chặn", (d, w) -> {
+                    if (viewedUserId <= 0) {
+                        Toast.makeText(this, "Không thể chặn người dùng này", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    friendApiService.blockUser(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                        @Override
+                        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(UserProfileActivity.this, "Đã chặn " + username, Toast.LENGTH_SHORT).show();
+                                setupFriendButton("BLOCKED");
+                            } else {
+                                Toast.makeText(UserProfileActivity.this, "Không thể chặn người dùng", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                            Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("Huỷ", null)
+                .show();
     }
 
     private void showReportUserDialog() {

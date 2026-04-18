@@ -18,15 +18,26 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.adapters.ChatRoomAdapter;
+import com.example.weconnect.api.ChatApiService;
+import com.example.weconnect.api.RetrofitClient;
 import com.example.weconnect.data.FakeChatRepository;
 import com.example.weconnect.data.FakePostRepository;
+import com.example.weconnect.models.ApiResponse;
 import com.example.weconnect.models.ChatRoom;
 import com.google.android.material.tabs.TabLayout;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class ChatListActivity extends AppCompatActivity {
 
-    private static final String TAB_GROUP = ChatRoom.TYPE_GROUP;
-    private static final String TAB_DIRECT = ChatRoom.TYPE_DIRECT;
+    private static final String TAB_ACTIVITY = "activity";
+    private static final String TAB_CONTACT = "contact";
 
     private ImageView ivNewChat;
     private EditText etChatSearch;
@@ -37,7 +48,10 @@ public class ChatListActivity extends AppCompatActivity {
     private FrameLayout btnProfile;
     private TabLayout tabChatType;
     private ChatRoomAdapter adapter;
-    private String currentTab = TAB_GROUP;
+    private String currentTab = TAB_ACTIVITY;
+
+    // Cached rooms from API
+    private List<ChatRoom> allRooms = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +64,13 @@ public class ChatListActivity extends AppCompatActivity {
         setupClickListeners();
         setupSearch();
         applyIncomingContext();
-        loadChats();
+        loadChatsFromApi();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadChatsFromApi();
     }
 
     private void initViews() {
@@ -77,8 +97,8 @@ public class ChatListActivity extends AppCompatActivity {
         tabChatType.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                currentTab = tab != null && tab.getPosition() == 1 ? TAB_DIRECT : TAB_GROUP;
-                loadChats();
+                currentTab = tab != null && tab.getPosition() == 1 ? TAB_CONTACT : TAB_ACTIVITY;
+                filterAndDisplay();
             }
 
             @Override
@@ -116,7 +136,7 @@ public class ChatListActivity extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                loadChats();
+                filterAndDisplay();
             }
 
             @Override
@@ -128,7 +148,7 @@ public class ChatListActivity extends AppCompatActivity {
     private void applyIncomingContext() {
         String highlightTag = getIntent().getStringExtra("highlight_tag");
         if (highlightTag != null && !highlightTag.trim().isEmpty()) {
-            currentTab = TAB_GROUP;
+            currentTab = TAB_ACTIVITY;
             TabLayout.Tab groupTab = tabChatType.getTabAt(0);
             if (groupTab != null) {
                 groupTab.select();
@@ -138,9 +158,149 @@ public class ChatListActivity extends AppCompatActivity {
         }
     }
 
-    private void loadChats() {
+    /**
+     * Load danh sách phòng chat từ backend API.
+     */
+    private void loadChatsFromApi() {
+        RetrofitClient.loadToken(this);
+        String token = RetrofitClient.getAuthToken();
+
+        if (token == null) {
+            // Fallback to fake data
+            loadChatsFromFake();
+            return;
+        }
+
+        ChatApiService chatApi = RetrofitClient.getClient().create(ChatApiService.class);
+        chatApi.getRooms().enqueue(new Callback<ApiResponse<List<Map<String, Object>>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<List<Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    allRooms = parseRooms(response.body().getResult());
+                    filterAndDisplay();
+                } else {
+                    loadChatsFromFake();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<Map<String, Object>>>> call, Throwable t) {
+                loadChatsFromFake();
+            }
+        });
+    }
+
+    private void loadChatsFromFake() {
         String query = etChatSearch.getText() != null ? etChatSearch.getText().toString() : "";
-        adapter.submitList(FakeChatRepository.getInstance().searchChatRoomsByType(currentTab, query));
+        String fakeType = TAB_ACTIVITY.equals(currentTab) ? ChatRoom.TYPE_GROUP : ChatRoom.TYPE_DIRECT;
+        adapter.submitList(FakeChatRepository.getInstance().searchChatRoomsByType(fakeType, query));
+    }
+
+    /**
+     * Parse API response to ChatRoom list.
+     */
+    private List<ChatRoom> parseRooms(List<Map<String, Object>> data) {
+        List<ChatRoom> rooms = new ArrayList<>();
+        for (Map<String, Object> item : data) {
+            try {
+                String id = "";
+                if (item.get("id") != null) {
+                    id = String.valueOf(((Number) item.get("id")).longValue());
+                }
+                String title = item.get("title") != null ? item.get("title").toString() : "Phòng chat";
+                String type = item.get("type") != null ? item.get("type").toString() : "group";
+                boolean active = item.get("active") != null && (Boolean) item.get("active");
+                String inactiveLabel = item.get("inactiveStatusLabel") != null
+                        ? item.get("inactiveStatusLabel").toString() : "";
+                String lastPreview = item.get("lastMessagePreview") != null
+                        ? item.get("lastMessagePreview").toString() : "";
+                String lastTime = item.get("lastMessageTime") != null
+                        ? item.get("lastMessageTime").toString() : "";
+
+                // Build members list
+                List<String> memberNames = new ArrayList<>();
+                String ownerName = item.get("ownerName") != null ? item.get("ownerName").toString() : "";
+                if (item.get("members") instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> members = (List<Map<String, Object>>) item.get("members");
+                    for (Map<String, Object> m : members) {
+                        String name = m.get("fullName") != null ? m.get("fullName").toString() : "";
+                        if (!name.isEmpty()) memberNames.add(name);
+                    }
+                }
+
+                // Create a simple ChatMessage for last preview
+                List<com.example.weconnect.models.ChatMessage> messages = new ArrayList<>();
+                if (!lastPreview.isEmpty() && !"Chưa có tin nhắn".equals(lastPreview)) {
+                    // Format time
+                    String formattedTime = formatTime(lastTime);
+                    messages.add(new com.example.weconnect.models.ChatMessage(
+                            "0", "", lastPreview, formattedTime, false
+                    ));
+                }
+
+                ChatRoom room = new ChatRoom(
+                        id, title, type,
+                        R.drawable.ic_user_placeholder,
+                        active, inactiveLabel,
+                        messages, ownerName, memberNames, new ArrayList<>()
+                );
+                rooms.add(room);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return rooms;
+    }
+
+    /**
+     * Format LocalDateTime string to short display.
+     */
+    private String formatTime(String isoTime) {
+        if (isoTime == null || isoTime.isEmpty()) return "";
+        try {
+            // Format: "2026-04-18T21:04:10"
+            if (isoTime.contains("T") && isoTime.length() >= 16) {
+                return isoTime.substring(11, 16); // "HH:mm"
+            }
+        } catch (Exception ignored) {}
+        return isoTime;
+    }
+
+    /**
+     * Filter allRooms by tab and search, then display.
+     */
+    private void filterAndDisplay() {
+        String query = etChatSearch.getText() != null
+                ? etChatSearch.getText().toString().trim().toLowerCase() : "";
+
+        List<ChatRoom> filtered = new ArrayList<>();
+        for (ChatRoom room : allRooms) {
+            // Filter by tab
+            boolean matchesTab;
+            if (TAB_ACTIVITY.equals(currentTab)) {
+                matchesTab = ChatRoom.TYPE_ACTIVITY.equals(room.getType())
+                        || ChatRoom.TYPE_GROUP.equals(room.getType());
+            } else {
+                matchesTab = ChatRoom.TYPE_DIRECT.equals(room.getType())
+                        || ChatRoom.TYPE_FRIEND_GROUP.equals(room.getType());
+            }
+            if (!matchesTab) continue;
+
+            // Filter by search query
+            if (!query.isEmpty()) {
+                String title = room.getTitle() != null ? room.getTitle().toLowerCase() : "";
+                String preview = room.getLastMessagePreview() != null
+                        ? room.getLastMessagePreview().toLowerCase() : "";
+                if (!title.contains(query) && !preview.contains(query)) continue;
+            }
+
+            filtered.add(room);
+        }
+
+        adapter.submitList(filtered);
     }
 
     private void openRoom(ChatRoom room) {
@@ -201,102 +361,52 @@ public class ChatListActivity extends AppCompatActivity {
         LinearLayout friendListContainer = new LinearLayout(this);
         friendListContainer.setOrientation(LinearLayout.VERTICAL);
 
-        // Get friends
-        com.example.weconnect.data.FakeSocialRepository socialRepo =
-                com.example.weconnect.data.FakeSocialRepository.getInstance();
-        java.util.List<String> allFriends = socialRepo.getFriendNames();
+        // Load friends from backend
         java.util.Set<String> selectedFriends = new java.util.LinkedHashSet<>();
 
-        // Build friend rows
-        Runnable buildFriendRows = () -> {};
-        final Runnable[] buildRef = new Runnable[1];
-        buildRef[0] = () -> {
-            friendListContainer.removeAllViews();
-            String query = search.getText().toString().trim().toLowerCase();
-
-            for (String friendName : allFriends) {
-                if (!query.isEmpty() && !friendName.toLowerCase().contains(query)) {
-                    continue;
-                }
-
-                LinearLayout friendRow = new LinearLayout(this);
-                friendRow.setOrientation(LinearLayout.HORIZONTAL);
-                friendRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-                friendRow.setPadding(64, 24, 64, 24);
-                friendRow.setBackgroundResource(android.R.drawable.list_selector_background);
-                friendRow.setClickable(true);
-
-                // Checkbox
-                android.widget.CheckBox checkBox = new android.widget.CheckBox(this);
-                checkBox.setChecked(selectedFriends.contains(friendName));
-                checkBox.setButtonTintList(android.content.res.ColorStateList.valueOf(
-                        getResources().getColor(R.color.primary_pink, null)));
-
-                // Avatar
-                ImageView avatar = new ImageView(this);
-                avatar.setImageResource(R.drawable.ic_user_placeholder);
-                LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(88, 88);
-                avatarLp.setMargins(24, 0, 0, 0);
-                avatar.setLayoutParams(avatarLp);
-                avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-                // Name
-                TextView name = new TextView(this);
-                name.setText(friendName);
-                name.setTextSize(15);
-                name.setTextColor(getResources().getColor(R.color.text_primary, null));
-                name.setPadding(24, 0, 0, 0);
-
-                friendRow.addView(checkBox);
-                friendRow.addView(avatar);
-                friendRow.addView(name);
-
-                View.OnClickListener toggleFriend = v -> {
-                    if (selectedFriends.contains(friendName)) {
-                        selectedFriends.remove(friendName);
-                        checkBox.setChecked(false);
-                    } else {
-                        selectedFriends.add(friendName);
-                        checkBox.setChecked(true);
-                    }
-                    // Update selected count label
-                    if (selectedFriends.isEmpty()) {
-                        tvSelected.setText("Chọn bạn bè để tạo nhóm chat");
-                    } else {
-                        tvSelected.setText("Đã chọn: " + selectedFriends.size() + " người");
-                    }
-                };
-
-                friendRow.setOnClickListener(toggleFriend);
-                checkBox.setOnClickListener(toggleFriend);
-
-                friendListContainer.addView(friendRow);
-            }
-
-            if (friendListContainer.getChildCount() == 0) {
-                TextView noResult = new TextView(this);
-                noResult.setText("Không tìm thấy bạn bè");
-                noResult.setTextSize(14);
-                noResult.setTextColor(getResources().getColor(R.color.text_secondary, null));
-                noResult.setGravity(android.view.Gravity.CENTER);
-                noResult.setPadding(0, 48, 0, 48);
-                friendListContainer.addView(noResult);
-            }
-        };
-
-        buildRef[0].run();
+        // Loading indicator
+        TextView tvLoading = new TextView(this);
+        tvLoading.setText("Đang tải danh sách bạn bè...");
+        tvLoading.setTextSize(14);
+        tvLoading.setTextColor(getResources().getColor(R.color.text_secondary, null));
+        tvLoading.setGravity(android.view.Gravity.CENTER);
+        tvLoading.setPadding(0, 48, 0, 48);
+        friendListContainer.addView(tvLoading);
         root.addView(friendListContainer);
 
-        // Search filter
-        search.addTextChangedListener(new android.text.TextWatcher() {
+        // Load friends from API
+        RetrofitClient.loadToken(this);
+        com.example.weconnect.api.FriendApiService friendApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.FriendApiService.class);
+
+        friendApi.getFriends().enqueue(new Callback<ApiResponse<List<Map<String, Object>>>>() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                buildRef[0].run();
+            public void onResponse(Call<ApiResponse<List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<List<Map<String, Object>>>> response) {
+                friendListContainer.removeAllViews();
+                List<Map<String, Object>> friendsList = new ArrayList<>();
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    friendsList.addAll(response.body().getResult());
+                }
+                buildFriendRows(friendListContainer, friendsList, selectedFriends,
+                        tvSelected, search, sheet);
             }
+
             @Override
-            public void afterTextChanged(android.text.Editable s) {}
+            public void onFailure(Call<ApiResponse<List<Map<String, Object>>>> call, Throwable t) {
+                friendListContainer.removeAllViews();
+                // Fallback to fake
+                List<Map<String, Object>> fakeList = new ArrayList<>();
+                for (String name : com.example.weconnect.data.FakeSocialRepository.getInstance().getFriendNames()) {
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("fullName", name);
+                    m.put("id", -1);
+                    fakeList.add(m);
+                }
+                buildFriendRows(friendListContainer, fakeList, selectedFriends,
+                        tvSelected, search, sheet);
+            }
         });
 
         // Divider
@@ -344,7 +454,7 @@ public class ChatListActivity extends AppCompatActivity {
                 Intent intent = new Intent(this, ConversationActivity.class);
                 intent.putExtra("room_id", groupRoom.getId());
                 startActivity(intent);
-                loadChats();
+                loadChatsFromApi();
             }
         });
         root.addView(btnCreate);
@@ -363,5 +473,98 @@ public class ChatListActivity extends AppCompatActivity {
                 imm.showSoftInput(search, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
             }
         }, 300);
+    }
+
+    private void buildFriendRows(LinearLayout container,
+                                  List<Map<String, Object>> friends,
+                                  java.util.Set<String> selectedFriends,
+                                  TextView tvSelected,
+                                  EditText search,
+                                  com.google.android.material.bottomsheet.BottomSheetDialog sheet) {
+        container.removeAllViews();
+        String queryText = search.getText().toString().trim().toLowerCase();
+
+        for (Map<String, Object> friendData : friends) {
+            String friendName = friendData.get("fullName") != null
+                    ? friendData.get("fullName").toString() : "Người dùng";
+
+            if (!queryText.isEmpty() && !friendName.toLowerCase().contains(queryText)) {
+                continue;
+            }
+
+            LinearLayout friendRow = new LinearLayout(this);
+            friendRow.setOrientation(LinearLayout.HORIZONTAL);
+            friendRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            friendRow.setPadding(64, 24, 64, 24);
+            friendRow.setBackgroundResource(android.R.drawable.list_selector_background);
+            friendRow.setClickable(true);
+
+            // Checkbox
+            android.widget.CheckBox checkBox = new android.widget.CheckBox(this);
+            checkBox.setChecked(selectedFriends.contains(friendName));
+            checkBox.setButtonTintList(android.content.res.ColorStateList.valueOf(
+                    getResources().getColor(R.color.primary_pink, null)));
+
+            // Avatar
+            ImageView avatar = new ImageView(this);
+            avatar.setImageResource(R.drawable.ic_user_placeholder);
+            LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(88, 88);
+            avatarLp.setMargins(24, 0, 0, 0);
+            avatar.setLayoutParams(avatarLp);
+            avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+            // Name
+            TextView name = new TextView(this);
+            name.setText(friendName);
+            name.setTextSize(15);
+            name.setTextColor(getResources().getColor(R.color.text_primary, null));
+            name.setPadding(24, 0, 0, 0);
+
+            friendRow.addView(checkBox);
+            friendRow.addView(avatar);
+            friendRow.addView(name);
+
+            View.OnClickListener toggleFriend = v -> {
+                if (selectedFriends.contains(friendName)) {
+                    selectedFriends.remove(friendName);
+                    checkBox.setChecked(false);
+                } else {
+                    selectedFriends.add(friendName);
+                    checkBox.setChecked(true);
+                }
+                if (selectedFriends.isEmpty()) {
+                    tvSelected.setText("Chọn bạn bè để tạo nhóm chat");
+                } else {
+                    tvSelected.setText("Đã chọn: " + selectedFriends.size() + " người");
+                }
+            };
+
+            friendRow.setOnClickListener(toggleFriend);
+            checkBox.setOnClickListener(toggleFriend);
+
+            container.addView(friendRow);
+        }
+
+        if (container.getChildCount() == 0) {
+            TextView noResult = new TextView(this);
+            noResult.setText("Không tìm thấy bạn bè");
+            noResult.setTextSize(14);
+            noResult.setTextColor(getResources().getColor(R.color.text_secondary, null));
+            noResult.setGravity(android.view.Gravity.CENTER);
+            noResult.setPadding(0, 48, 0, 48);
+            container.addView(noResult);
+        }
+
+        // Search filter
+        search.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                buildFriendRows(container, friends, selectedFriends, tvSelected, search, sheet);
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
     }
 }

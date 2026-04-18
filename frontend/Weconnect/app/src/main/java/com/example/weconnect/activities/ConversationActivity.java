@@ -19,14 +19,25 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.adapters.MessageAdapter;
+import com.example.weconnect.api.ChatApiService;
+import com.example.weconnect.api.RetrofitClient;
 import com.example.weconnect.data.FakeChatRepository;
 import com.example.weconnect.data.FakePostRepository;
 import com.example.weconnect.data.FakeSocialRepository;
+import com.example.weconnect.models.ApiResponse;
+import com.example.weconnect.models.ChatMessage;
 import com.example.weconnect.models.ChatRoom;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ConversationActivity extends AppCompatActivity {
 
@@ -43,6 +54,8 @@ public class ConversationActivity extends AppCompatActivity {
     private MessageAdapter adapter;
     private ChatRoom room;
     private String currentUsername;
+    private ChatApiService chatApi;
+    private long backendRoomId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,6 +63,8 @@ public class ConversationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_conversation);
 
         currentUsername = FakePostRepository.getInstance().getCurrentUsername();
+        RetrofitClient.loadToken(this);
+        chatApi = RetrofitClient.getClient().create(ChatApiService.class);
         initViews();
         setupRecyclerView();
         setupClickListeners();
@@ -85,42 +100,119 @@ public class ConversationActivity extends AppCompatActivity {
         String roomId = getIntent().getStringExtra("room_id");
         String chatName = getIntent().getStringExtra("chat_name");
 
+        // Thử parse room_id thành số (backend ID)
         if (roomId != null) {
-            room = FakeChatRepository.getInstance().getRoomById(roomId);
-        } else if (chatName != null) {
-            room = FakeChatRepository.getInstance().getOrCreateDirectRoom(chatName);
+            try {
+                backendRoomId = Long.parseLong(roomId);
+            } catch (NumberFormatException e) {
+                backendRoomId = -1;
+            }
         }
 
-        if (room == null) {
+        if (backendRoomId > 0) {
+            // Load room từ backend API
+            loadRoomFromApi(backendRoomId);
+        } else if (roomId != null) {
+            // Fallback: room_id không phải số, thử FakeChatRepository
+            room = FakeChatRepository.getInstance().getRoomById(roomId);
+            if (room != null) {
+                displayRoom();
+            } else {
+                Toast.makeText(this, "Không tìm thấy phòng chat.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        } else if (chatName != null) {
+            room = FakeChatRepository.getInstance().getOrCreateDirectRoom(chatName);
+            if (room != null) {
+                displayRoom();
+            } else {
+                Toast.makeText(this, "Không tìm thấy phòng chat.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        } else {
             Toast.makeText(this, "Không tìm thấy phòng chat.", Toast.LENGTH_SHORT).show();
             finish();
-            return;
         }
+    }
+
+    private void loadRoomFromApi(long roomId) {
+        chatApi.getRoom(roomId).enqueue(new Callback<ApiResponse<Map<String, Object>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Map<String, Object>>> call,
+                                   Response<ApiResponse<Map<String, Object>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    Map<String, Object> data = response.body().getResult();
+                    room = parseRoomFromApi(data);
+                    displayRoom();
+                    loadMessagesFromApi();
+                } else {
+                    Toast.makeText(ConversationActivity.this,
+                            "Không tìm thấy phòng chat.", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Map<String, Object>>> call, Throwable t) {
+                Toast.makeText(ConversationActivity.this,
+                        "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+    }
+
+    private ChatRoom parseRoomFromApi(Map<String, Object> data) {
+        String id = "";
+        if (data.get("id") != null) {
+            id = String.valueOf(((Number) data.get("id")).longValue());
+        }
+        String title = data.get("title") != null ? data.get("title").toString() : "Phòng chat";
+        String type = data.get("type") != null ? data.get("type").toString() : "group";
+        boolean active = data.get("active") != null && (Boolean) data.get("active");
+        String inactiveLabel = data.get("inactiveStatusLabel") != null
+                ? data.get("inactiveStatusLabel").toString() : "";
+        String ownerName = data.get("ownerName") != null ? data.get("ownerName").toString() : "";
+
+        List<String> memberNames = new ArrayList<>();
+        if (data.get("members") instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> members = (List<Map<String, Object>>) data.get("members");
+            for (Map<String, Object> m : members) {
+                String name = m.get("fullName") != null ? m.get("fullName").toString() : "";
+                if (!name.isEmpty()) memberNames.add(name);
+            }
+        }
+
+        return new ChatRoom(id, title, type, R.drawable.ic_user_placeholder,
+                active, inactiveLabel, new ArrayList<>(), ownerName, memberNames, new ArrayList<>());
+    }
+
+    private void displayRoom() {
+        if (room == null) return;
 
         ivConversationAvatar.setImageResource(room.getAvatarResId());
         tvConversationTitle.setText(room.getTitle());
         tvConversationType.setText(room.getTypeLabel());
 
-        if (ChatRoom.TYPE_GROUP.equals(room.getType()) && !room.isActive()) {
-            // Inactive group: hide green dot, show inactive label
+        boolean isActivityOrGroup = ChatRoom.TYPE_GROUP.equals(room.getType())
+                || ChatRoom.TYPE_ACTIVITY.equals(room.getType());
+
+        if (isActivityOrGroup && !room.isActive()) {
             viewOnlineDot.setVisibility(View.GONE);
             tvConversationStatus.setText(room.getInactiveStatusLabel());
             tvConversationStatus.setTextColor(0xFF9E8E82);
         } else {
-            // Active / online: show green dot + "Đang hoạt động"
             viewOnlineDot.setVisibility(View.VISIBLE);
             tvConversationStatus.setText("Đang hoạt động");
             tvConversationStatus.setTextColor(0xFF66BB6A);
         }
 
-        // Show settings icon for group/friend_group chats, hide for direct
         if (ChatRoom.TYPE_DIRECT.equals(room.getType())) {
             ivChatSettings.setVisibility(View.GONE);
         } else {
             ivChatSettings.setVisibility(View.VISIBLE);
         }
-
-        refreshMessages();
     }
 
     private void showMemberManagementDialog() {
@@ -128,7 +220,8 @@ public class ConversationActivity extends AppCompatActivity {
 
         boolean isOwner = room.isOwner(currentUsername);
         boolean isFriendGroup = ChatRoom.TYPE_FRIEND_GROUP.equals(room.getType());
-        boolean isActivityGroup = ChatRoom.TYPE_GROUP.equals(room.getType());
+        boolean isActivityGroup = ChatRoom.TYPE_GROUP.equals(room.getType())
+                || ChatRoom.TYPE_ACTIVITY.equals(room.getType());
 
         BottomSheetDialog sheet = new BottomSheetDialog(this);
 
@@ -449,7 +542,7 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void sendMessage() {
-        if (room == null) {
+        if (room == null || backendRoomId <= 0) {
             return;
         }
 
@@ -461,20 +554,83 @@ public class ConversationActivity extends AppCompatActivity {
             return;
         }
 
-        FakeChatRepository.getInstance().sendMessage(
-                room.getId(),
-                currentUsername,
-                content
-        );
         etMessageInput.setText("");
-        room = FakeChatRepository.getInstance().getRoomById(room.getId());
-        refreshMessages();
+
+        Map<String, String> body = new HashMap<>();
+        body.put("content", content);
+
+        chatApi.sendMessage(backendRoomId, body).enqueue(new Callback<ApiResponse<Map<String, Object>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Map<String, Object>>> call,
+                                   Response<ApiResponse<Map<String, Object>>> response) {
+                if (response.isSuccessful()) {
+                    loadMessagesFromApi();
+                } else {
+                    Toast.makeText(ConversationActivity.this,
+                            "Không thể gửi tin nhắn", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Map<String, Object>>> call, Throwable t) {
+                Toast.makeText(ConversationActivity.this,
+                        "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadMessagesFromApi() {
+        if (backendRoomId <= 0) return;
+
+        chatApi.getMessages(backendRoomId).enqueue(new Callback<ApiResponse<List<Map<String, Object>>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<List<Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    List<ChatMessage> messages = new ArrayList<>();
+                    for (Map<String, Object> msgData : response.body().getResult()) {
+                        String id = msgData.get("id") != null
+                                ? String.valueOf(((Number) msgData.get("id")).longValue()) : "";
+                        String sender = msgData.get("senderName") != null
+                                ? msgData.get("senderName").toString() : "";
+                        String content = msgData.get("content") != null
+                                ? msgData.get("content").toString() : "";
+                        String time = "";
+                        if (msgData.get("createdAt") != null) {
+                            String raw = msgData.get("createdAt").toString();
+                            if (raw.contains("T") && raw.length() >= 16) {
+                                time = raw.substring(11, 16);
+                            } else {
+                                time = raw;
+                            }
+                        }
+                        boolean sentByMe = msgData.get("sentByCurrentUser") != null
+                                && (Boolean) msgData.get("sentByCurrentUser");
+                        messages.add(new ChatMessage(id, sender, content, time, sentByMe));
+                    }
+                    adapter.submitList(messages);
+                    if (!messages.isEmpty()) {
+                        rvMessages.scrollToPosition(messages.size() - 1);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<List<Map<String, Object>>>> call, Throwable t) {
+                // Silent fail for message loading
+            }
+        });
     }
 
     private void refreshMessages() {
-        adapter.submitList(room.getMessages());
-        if (!room.getMessages().isEmpty()) {
-            rvMessages.scrollToPosition(room.getMessages().size() - 1);
+        if (backendRoomId > 0) {
+            loadMessagesFromApi();
+        } else if (room != null) {
+            adapter.submitList(room.getMessages());
+            if (!room.getMessages().isEmpty()) {
+                rvMessages.scrollToPosition(room.getMessages().size() - 1);
+            }
         }
     }
 }

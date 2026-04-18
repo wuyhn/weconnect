@@ -6,9 +6,11 @@ import com.weconnect.backend.entity.ChatMessage;
 import com.weconnect.backend.entity.ChatRoom;
 import com.weconnect.backend.entity.ChatRoomMember;
 import com.weconnect.backend.entity.User;
+import com.weconnect.backend.repository.BlockedUserRepository;
 import com.weconnect.backend.repository.ChatMessageRepository;
 import com.weconnect.backend.repository.ChatRoomMemberRepository;
 import com.weconnect.backend.repository.ChatRoomRepository;
+import com.weconnect.backend.repository.PostRepository;
 import com.weconnect.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -22,29 +24,62 @@ public class ChatService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
+    private final BlockedUserRepository blockedUserRepository;
+    private final PostRepository postRepository;
 
     public ChatService(ChatRoomRepository chatRoomRepository,
                        ChatRoomMemberRepository chatRoomMemberRepository,
                        ChatMessageRepository chatMessageRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       BlockedUserRepository blockedUserRepository,
+                       PostRepository postRepository) {
         this.chatRoomRepository = chatRoomRepository;
         this.chatRoomMemberRepository = chatRoomMemberRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.userRepository = userRepository;
+        this.blockedUserRepository = blockedUserRepository;
+        this.postRepository = postRepository;
     }
 
-    // Danh sách phòng chat của user
+    // Danh sách phòng chat của user (bỏ qua room activity không hợp lệ)
     public List<ChatRoomResponse> getUserRooms(Long userId) {
         List<ChatRoomMember> memberships = chatRoomMemberRepository.findByUserId(userId);
         List<ChatRoomResponse> rooms = new ArrayList<>();
 
         for (ChatRoomMember membership : memberships) {
             ChatRoom room = chatRoomRepository.findById(membership.getRoomId()).orElse(null);
-            if (room != null) {
-                rooms.add(toRoomResponse(room));
+            if (room == null) continue;
+
+            // Bỏ qua room activity có postId null hoặc post không tồn tại
+            if (ChatRoom.TYPE_ACTIVITY.equals(room.getType())) {
+                if (room.getPostId() == null || !postRepository.existsById(room.getPostId())) {
+                    continue;
+                }
             }
+
+            rooms.add(toRoomResponse(room));
         }
         return rooms;
+    }
+
+    // Xóa tất cả room activity không hợp lệ (postId null hoặc post đã bị xóa)
+    public int cleanupInvalidRooms() {
+        List<ChatRoom> allRooms = chatRoomRepository.findAll();
+        int deleted = 0;
+        for (ChatRoom room : allRooms) {
+            if (ChatRoom.TYPE_ACTIVITY.equals(room.getType())) {
+                if (room.getPostId() == null || !postRepository.existsById(room.getPostId())) {
+                    // Xóa members và messages trước
+                    List<ChatRoomMember> members = chatRoomMemberRepository.findByRoomId(room.getId());
+                    chatRoomMemberRepository.deleteAll(members);
+                    List<ChatMessage> messages = chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(room.getId());
+                    chatMessageRepository.deleteAll(messages);
+                    chatRoomRepository.delete(room);
+                    deleted++;
+                }
+            }
+        }
+        return deleted;
     }
 
     // Chi tiết phòng chat
@@ -132,6 +167,12 @@ public class ChatService {
 
     // Lấy hoặc tạo phòng DM
     public ChatRoomResponse getOrCreateDirectRoom(Long user1Id, Long user2Id) {
+        // Kiểm tra block trước khi tạo/trả về room
+        if (blockedUserRepository.existsByBlockerIdAndBlockedId(user1Id, user2Id)
+                || blockedUserRepository.existsByBlockerIdAndBlockedId(user2Id, user1Id)) {
+            throw new RuntimeException("Không thể nhắn tin với người dùng này.");
+        }
+
         // Tìm phòng direct đã tồn tại
         ChatRoom existing = chatRoomRepository.findDirectRoomBetween(user1Id, user2Id).orElse(null);
         if (existing != null) {
@@ -177,6 +218,20 @@ public class ChatService {
             throw new RuntimeException("Bạn không phải thành viên phòng chat này.");
         }
 
+        // Kiểm tra block trong phòng DM
+        ChatRoom room = chatRoomRepository.findById(roomId).orElse(null);
+        if (room != null && ChatRoom.TYPE_DIRECT.equals(room.getType())) {
+            var members = chatRoomMemberRepository.findByRoomId(roomId);
+            for (var m : members) {
+                if (!m.getUserId().equals(senderId)) {
+                    if (blockedUserRepository.existsByBlockerIdAndBlockedId(senderId, m.getUserId())
+                            || blockedUserRepository.existsByBlockerIdAndBlockedId(m.getUserId(), senderId)) {
+                        throw new RuntimeException("Không thể gửi tin nhắn cho người dùng này.");
+                    }
+                }
+            }
+        }
+
         ChatMessage message = ChatMessage.builder()
                 .roomId(roomId)
                 .senderId(senderId)
@@ -208,6 +263,23 @@ public class ChatService {
             if (owner != null) ownerName = owner.getFullName();
         }
 
+        // Lấy title chính xác từ post cho room activity
+        String roomTitle = room.getTitle();
+        if (ChatRoom.TYPE_ACTIVITY.equals(room.getType()) && room.getPostId() != null) {
+            var postOpt = postRepository.findById(room.getPostId());
+            if (postOpt.isPresent()) {
+                var post = postOpt.get();
+                String tag = (post.getInterestTag() != null && !post.getInterestTag().isEmpty())
+                        ? post.getInterestTag() : "Hoạt động";
+                roomTitle = tag + " - " + ownerName;
+                // Đồng bộ title vào room nếu khác
+                if (!roomTitle.equals(room.getTitle())) {
+                    room.setTitle(roomTitle);
+                    chatRoomRepository.save(room);
+                }
+            }
+        }
+
         // Last message
         List<ChatMessage> messages = chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(room.getId());
         String lastPreview = "Chưa có tin nhắn";
@@ -220,7 +292,8 @@ public class ChatService {
 
         return ChatRoomResponse.builder()
                 .id(room.getId())
-                .title(room.getTitle())
+                .postId(room.getPostId())
+                .title(roomTitle)
                 .type(room.getType())
                 .ownerId(room.getOwnerId())
                 .ownerName(ownerName)

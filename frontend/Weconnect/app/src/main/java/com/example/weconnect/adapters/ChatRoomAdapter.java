@@ -50,7 +50,8 @@ public class ChatRoomAdapter extends RecyclerView.Adapter<ChatRoomAdapter.ChatRo
         holder.tvTime.setText(room.getLastMessageTime());
         holder.tvTypeBadge.setText("");
 
-        if (ChatRoom.TYPE_GROUP.equals(room.getType()) && !room.isActive()) {
+        if ((ChatRoom.TYPE_GROUP.equals(room.getType()) || ChatRoom.TYPE_ACTIVITY.equals(room.getType()))
+                && !room.isActive()) {
             holder.tvTypeBadge.setBackgroundResource(R.drawable.bg_chat_type_badge_inactive);
             holder.viewAccentDot.setBackgroundResource(R.drawable.bg_chat_accent_dot_inactive);
             holder.viewOnlineIndicator.setVisibility(View.GONE);
