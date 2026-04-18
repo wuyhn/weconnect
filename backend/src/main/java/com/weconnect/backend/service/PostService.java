@@ -3,9 +3,11 @@ package com.weconnect.backend.service;
 import com.weconnect.backend.dto.PostRequest;
 import com.weconnect.backend.dto.PostResponse;
 import com.weconnect.backend.entity.Notification;
+import com.weconnect.backend.entity.BlockedUser;
 import com.weconnect.backend.entity.Post;
 import com.weconnect.backend.entity.PostMember;
 import com.weconnect.backend.entity.User;
+import com.weconnect.backend.repository.BlockedUserRepository;
 import com.weconnect.backend.repository.PostMemberRepository;
 import com.weconnect.backend.repository.PostRepository;
 import com.weconnect.backend.repository.UserRepository;
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PostService {
@@ -23,22 +27,26 @@ public class PostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ChatService chatService;
+    private final BlockedUserRepository blockedUserRepository;
 
     public PostService(PostRepository postRepository,
                        PostMemberRepository postMemberRepository,
                        UserRepository userRepository,
                        NotificationService notificationService,
-                       ChatService chatService) {
+                       ChatService chatService,
+                       BlockedUserRepository blockedUserRepository) {
         this.postRepository = postRepository;
         this.postMemberRepository = postMemberRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.chatService = chatService;
+        this.blockedUserRepository = blockedUserRepository;
     }
 
     // Lấy danh sách bài đăng active
     public List<PostResponse> getActivePosts(Long currentUserId) {
         List<Post> posts = postRepository.findByArchivedFalseAndEndTimeAfterOrderByCreatedAtDesc(LocalDateTime.now());
+        posts = filterBlockedPosts(posts, currentUserId);
         return toResponseList(posts, currentUserId);
     }
 
@@ -259,6 +267,7 @@ public class PostService {
     // Bài đăng của user (active)
     public List<PostResponse> getUserActivePosts(Long userId, Long currentUserId) {
         List<Post> posts = postRepository.findByAuthorIdAndArchivedFalseAndEndTimeAfterOrderByCreatedAtDesc(userId, LocalDateTime.now());
+        posts = filterBlockedPosts(posts, currentUserId);
         return toResponseList(posts, currentUserId);
     }
 
@@ -277,6 +286,7 @@ public class PostService {
     // Tìm kiếm bài đăng
     public List<PostResponse> searchPosts(String query, Long currentUserId) {
         List<Post> posts = postRepository.findByContentContainingIgnoreCaseOrInterestTagContainingIgnoreCase(query, query);
+        posts = filterBlockedPosts(posts, currentUserId);
         return toResponseList(posts, currentUserId);
     }
 
@@ -327,5 +337,27 @@ public class PostService {
             responses.add(toResponse(post, currentUserId));
         }
         return responses;
+    }
+
+    /**
+     * Lọc bỏ bài đăng từ user bị chặn (2 chiều).
+     */
+    private List<Post> filterBlockedPosts(List<Post> posts, Long currentUserId) {
+        if (currentUserId == null) return posts;
+
+        // Lấy danh sách user mà currentUser đã chặn
+        Set<Long> blockedByMe = blockedUserRepository.findByBlockerId(currentUserId)
+                .stream().map(BlockedUser::getBlockedId).collect(Collectors.toSet());
+        // Lấy danh sách user đã chặn currentUser
+        Set<Long> blockedMe = blockedUserRepository.findByBlockedId(currentUserId)
+                .stream().map(BlockedUser::getBlockerId).collect(Collectors.toSet());
+
+        List<Post> filtered = new ArrayList<>();
+        for (Post post : posts) {
+            if (!blockedByMe.contains(post.getAuthorId()) && !blockedMe.contains(post.getAuthorId())) {
+                filtered.add(post);
+            }
+        }
+        return filtered;
     }
 }

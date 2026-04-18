@@ -80,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         syncInterestsFromBackend();
+        loadFriendNamesFromBackend();
         loadPostsFromApi();
         loadUnreadNotificationCount();
         highlightTab(btnHome);
@@ -430,13 +431,35 @@ public class MainActivity extends AppCompatActivity {
         return tags;
     }
 
+    private Set<String> cachedFriendNames = new java.util.HashSet<>();
+
     private Set<String> getFriendNames() {
-        try {
-            List<String> friends = com.example.weconnect.data.FakeSocialRepository.getInstance().getFriendNames();
-            return new HashSet<>(friends);
-        } catch (Exception e) {
-            return new HashSet<>();
-        }
+        return cachedFriendNames;
+    }
+
+    private void loadFriendNamesFromBackend() {
+        RetrofitClient.loadToken(this);
+        com.example.weconnect.api.FriendApiService friendApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.FriendApiService.class);
+        friendApi.getFriends().enqueue(new Callback<com.example.weconnect.models.ApiResponse<java.util.List<java.util.Map<String, Object>>>>() {
+            @Override
+            public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<java.util.Map<String, Object>>>> call,
+                                   retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.List<java.util.Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
+                    Set<String> names = new java.util.HashSet<>();
+                    for (java.util.Map<String, Object> friend : response.body().getResult()) {
+                        Object name = friend.get("fullName");
+                        if (name != null) names.add(name.toString());
+                    }
+                    cachedFriendNames = names;
+                }
+            }
+
+            @Override
+            public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<java.util.Map<String, Object>>>> call, Throwable t) {
+                // Bỏ qua lỗi
+            }
+        });
     }
 
     private void highlightTab(FrameLayout selectedTab) {

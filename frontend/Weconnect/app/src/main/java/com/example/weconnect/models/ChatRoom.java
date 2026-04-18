@@ -9,6 +9,7 @@ public class ChatRoom implements Serializable {
     public static final String TYPE_GROUP = "group";
     public static final String TYPE_DIRECT = "direct";
     public static final String TYPE_FRIEND_GROUP = "friend_group";
+    public static final String TYPE_ACTIVITY = "activity";
 
     private final String id;
     private final String title;
@@ -146,7 +147,7 @@ public class ChatRoom implements Serializable {
     }
 
     public String getTypeLabel() {
-        if (TYPE_GROUP.equals(type)) {
+        if (TYPE_GROUP.equals(type) || TYPE_ACTIVITY.equals(type)) {
             return "Hoạt động";
         }
         if (TYPE_FRIEND_GROUP.equals(type)) {

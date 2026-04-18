@@ -146,15 +146,48 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                 holder.btnAccept.setText("Chấp nhận");
                 holder.btnDecline.setText("Từ chối");
 
-                holder.btnAccept.setOnClickListener(v -> {
-                    FakeSocialRepository.getInstance().acceptFriendRequest(item.getRelatedUsername());
-                    markNotificationActioned(item, holder, "Đã chấp nhận lời mời kết bạn");
-                });
+                if (item.getType() == NotificationItem.NotificationType.FRIEND_REQUEST_RECEIVED
+                        && item.getRelatedUserId() != null) {
+                    // Use real backend API
+                    com.example.weconnect.api.FriendApiService friendApi =
+                            RetrofitClient.getClient().create(com.example.weconnect.api.FriendApiService.class);
 
-                holder.btnDecline.setOnClickListener(v -> {
-                    FakeSocialRepository.getInstance().declineFriendRequest(item.getRelatedUsername());
-                    markNotificationActioned(item, holder, "Đã từ chối lời mời kết bạn");
-                });
+                    holder.btnAccept.setOnClickListener(v -> {
+                        friendApi.acceptFriend(item.getRelatedUserId()).enqueue(new Callback<ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                                markNotificationActioned(item, holder, "Đã chấp nhận lời mời kết bạn");
+                            }
+                            @Override
+                            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                                Toast.makeText(context, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    });
+
+                    holder.btnDecline.setOnClickListener(v -> {
+                        friendApi.declineFriend(item.getRelatedUserId()).enqueue(new Callback<ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                                markNotificationActioned(item, holder, "Đã từ chối lời mời kết bạn");
+                            }
+                            @Override
+                            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                                Toast.makeText(context, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    });
+                } else {
+                    // Fallback for other types
+                    holder.btnAccept.setOnClickListener(v -> {
+                        FakeSocialRepository.getInstance().acceptFriendRequest(item.getRelatedUsername());
+                        markNotificationActioned(item, holder, "Đã chấp nhận");
+                    });
+                    holder.btnDecline.setOnClickListener(v -> {
+                        FakeSocialRepository.getInstance().declineFriendRequest(item.getRelatedUsername());
+                        markNotificationActioned(item, holder, "Đã từ chối");
+                    });
+                }
             }
         } else if (isActionable && item.isActioned()) {
             holder.layoutActions.setVisibility(View.GONE);
@@ -231,8 +264,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                             markNotificationActioned(item, holder,
                                     "✅ Bạn đã duyệt " + item.getRelatedUsername());
 
-                            // Create activity group chat and add approved member
-                            createActivityChatForApprovedUser(item);
+                            // Backend đã tự thêm user vào phòng chat hoạt động
 
                             new com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
                                     .setTitle("Đã duyệt!")
@@ -251,47 +283,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                 });
     }
 
-    private void createActivityChatForApprovedUser(NotificationItem item) {
-        if (item.getRelatedPostId() == null) return;
-
-        // Fetch post info to get title for chat room
-        com.example.weconnect.api.PostApiService postApi =
-                RetrofitClient.getClient().create(com.example.weconnect.api.PostApiService.class);
-
-        postApi.getPost(item.getRelatedPostId()).enqueue(new Callback<ApiResponse<com.example.weconnect.models.PostResponse>>() {
-            @Override
-            public void onResponse(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call,
-                                   Response<ApiResponse<com.example.weconnect.models.PostResponse>> response) {
-                if (response.isSuccessful() && response.body() != null
-                        && response.body().getResult() != null) {
-                    com.example.weconnect.models.PostResponse postResp = response.body().getResult();
-                    String chatTitle = postResp.getInterestTag() != null && !postResp.getInterestTag().isEmpty()
-                            ? postResp.getInterestTag() : postResp.getContent();
-                    String postId = String.valueOf(postResp.getId());
-                    String owner = postResp.getAuthorName();
-
-                    com.example.weconnect.data.FakeChatRepository chatRepo =
-                            com.example.weconnect.data.FakeChatRepository.getInstance();
-                    chatRepo.getOrCreateActivityGroupChat(postId, chatTitle, owner);
-                    if (item.getRelatedUsername() != null) {
-                        chatRepo.addMemberToActivityChat(postId, item.getRelatedUsername());
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call, Throwable t) {
-                // Fallback: create with notification info
-                String postId = String.valueOf(item.getRelatedPostId());
-                com.example.weconnect.data.FakeChatRepository chatRepo =
-                        com.example.weconnect.data.FakeChatRepository.getInstance();
-                chatRepo.getOrCreateActivityGroupChat(postId, "Hoạt động #" + postId, null);
-                if (item.getRelatedUsername() != null) {
-                    chatRepo.addMemberToActivityChat(postId, item.getRelatedUsername());
-                }
-            }
-        });
-    }
 
     private void markNotificationActioned(NotificationItem item, NotifViewHolder holder, String message) {
         item.setActioned(true);
@@ -328,23 +319,10 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                         && response.body().getResult() != null) {
                     com.example.weconnect.models.Post post = response.body().getResult().toPost();
 
-                    // If this is a JOIN_APPROVED notification, mark post as joined + create chat room
+                    // If this is a JOIN_APPROVED notification, mark post as joined
+                    // Backend đã tự thêm user vào phòng chat hoạt động khi approve
                     if (item.getType() == NotificationItem.NotificationType.JOIN_APPROVED) {
                         post.setJoined(true);
-
-                        // Pre-create the activity group chat so it shows in chat list
-                        com.example.weconnect.models.PostResponse postResp = response.body().getResult();
-                        String chatTitle = postResp.getInterestTag() != null && !postResp.getInterestTag().isEmpty()
-                                ? postResp.getInterestTag() : postResp.getContent();
-                        String postId = String.valueOf(postResp.getId());
-                        com.example.weconnect.data.FakeChatRepository chatRepo =
-                                com.example.weconnect.data.FakeChatRepository.getInstance();
-                        chatRepo.getOrCreateActivityGroupChat(postId, chatTitle, postResp.getAuthorName());
-                        // Add current user as member
-                        String currentUser = com.example.weconnect.data.FakePostRepository.getInstance().getCurrentUsername();
-                        if (currentUser != null) {
-                            chatRepo.addMemberToActivityChat(postId, currentUser);
-                        }
                     }
 
                     Intent intent = new Intent(context, com.example.weconnect.activities.PostDetailActivity.class);

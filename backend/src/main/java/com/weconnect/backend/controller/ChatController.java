@@ -109,4 +109,12 @@ public class ChatController {
                     .code(1021).message(e.getMessage()).build());
         }
     }
+
+    // Dọn dẹp các phòng chat activity không hợp lệ (postId null hoặc post đã bị xóa)
+    @DeleteMapping("/rooms/cleanup")
+    public ResponseEntity<?> cleanupInvalidRooms() {
+        int deleted = chatService.cleanupInvalidRooms();
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Đã xóa " + deleted + " phòng chat không hợp lệ.").build());
+    }
 }

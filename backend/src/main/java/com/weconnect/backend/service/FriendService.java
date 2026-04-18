@@ -2,6 +2,7 @@ package com.weconnect.backend.service;
 
 import com.weconnect.backend.entity.BlockedUser;
 import com.weconnect.backend.entity.Friendship;
+import com.weconnect.backend.entity.Notification;
 import com.weconnect.backend.entity.User;
 import com.weconnect.backend.repository.BlockedUserRepository;
 import com.weconnect.backend.repository.FriendshipRepository;
@@ -19,13 +20,16 @@ public class FriendService {
     private final FriendshipRepository friendshipRepository;
     private final BlockedUserRepository blockedUserRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public FriendService(FriendshipRepository friendshipRepository,
                          BlockedUserRepository blockedUserRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         NotificationService notificationService) {
         this.friendshipRepository = friendshipRepository;
         this.blockedUserRepository = blockedUserRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     // Gửi lời mời kết bạn
@@ -55,6 +59,20 @@ public class FriendService {
                 .build();
 
         friendshipRepository.save(friendship);
+
+        // Tạo thông báo cho người nhận
+        User sender = userRepository.findById(senderId).orElse(null);
+        String senderName = sender != null ? sender.getFullName() : "Người dùng";
+        String message = senderName + " đã gửi cho bạn lời mời kết bạn.";
+        notificationService.createNotification(
+                receiverId,
+                Notification.NotificationType.FRIEND_REQUEST_RECEIVED,
+                message,
+                senderName,
+                null,
+                senderId
+        );
+
         return "Đã gửi lời mời kết bạn!";
     }
 
