@@ -12,4 +12,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int countByUserIdAndIsReadFalse(Long userId);
 
     List<Notification> findByUserIdAndIsReadFalse(Long userId);
+
+    // Tất cả notifications của user (dùng cho cascade delete)
+    List<Notification> findByUserId(Long userId);
 }

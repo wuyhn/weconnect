@@ -26,4 +26,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     // Lời mời đã gửi (PENDING, mình là sender)
     List<Friendship> findBySenderIdAndStatus(Long senderId, Friendship.Status status);
+
+    // Tất cả friendships liên quan đến user (dùng cho cascade delete)
+    List<Friendship> findBySenderIdOrReceiverId(Long senderId, Long receiverId);
 }

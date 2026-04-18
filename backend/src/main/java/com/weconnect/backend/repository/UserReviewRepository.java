@@ -10,4 +10,7 @@ public interface UserReviewRepository extends JpaRepository<UserReview, Long> {
     List<UserReview> findByReviewedUserIdOrderByCreatedAtDesc(Long reviewedUserId);
 
     boolean existsByReviewerIdAndReviewedUserId(Long reviewerId, Long reviewedUserId);
+
+    // Tất cả reviews liên quan đến user (dùng cho cascade delete)
+    List<UserReview> findByReviewerIdOrReviewedUserId(Long reviewerId, Long reviewedUserId);
 }

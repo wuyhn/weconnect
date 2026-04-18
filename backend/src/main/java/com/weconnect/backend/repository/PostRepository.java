@@ -23,4 +23,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // Bài đăng của user
     List<Post> findByAuthorIdOrderByCreatedAtDesc(Long authorId);
+
+    // Tất cả bài đăng của user (dùng cho cascade delete)
+    List<Post> findByAuthorId(Long authorId);
 }

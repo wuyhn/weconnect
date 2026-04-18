@@ -91,9 +91,11 @@ public class UserProfileActivity extends AppCompatActivity {
     private RecyclerView rvRelatedPosts;
 
     private String username;
+    private long viewedUserId = -1; // ID của user đang xem (dùng cho friend API)
     private FakeSocialRepository socialRepository;
     private PostApiService postApiService;
     private ReviewApiService reviewApiService;
+    private com.example.weconnect.api.FriendApiService friendApiService;
     private ActivityResultLauncher<Intent> createPostLauncher;
 
     @Override
@@ -102,8 +104,10 @@ public class UserProfileActivity extends AppCompatActivity {
         setContentView(R.layout.activity_user_profile);
 
         socialRepository = FakeSocialRepository.getInstance();
+        RetrofitClient.loadToken(this);
         postApiService = RetrofitClient.getClient().create(PostApiService.class);
         reviewApiService = RetrofitClient.getClient().create(ReviewApiService.class);
+        friendApiService = RetrofitClient.getClient().create(com.example.weconnect.api.FriendApiService.class);
         setupCreatePostLauncher();
         initViews();
         bindFakeUserProfile();
@@ -111,7 +115,8 @@ public class UserProfileActivity extends AppCompatActivity {
         bindSocialState();
         setupDrawerMenu();
         bindActivePosts();
-        loadRelatedPosts();
+        // Ẩn phần gợi ý bài viết (chỉ giữ gợi ý user)
+        hideRelatedPosts();
     }
 
     private void setupCreatePostLauncher() {
@@ -177,7 +182,8 @@ public class UserProfileActivity extends AppCompatActivity {
         bindSocialState();
         // Refresh bài viết khi quay lại (vd: sau khi tạo bài mới)
         bindActivePosts();
-        loadRelatedPosts();
+        // Ẩn phần gợi ý bài viết (chỉ giữ gợi ý user)
+        hideRelatedPosts();
     }
 
     private void initViews() {
@@ -285,6 +291,12 @@ public class UserProfileActivity extends AppCompatActivity {
                     .setTitle("Đăng xuất")
                     .setMessage("Bạn có chắc muốn đăng xuất?")
                     .setPositiveButton("Đăng xuất", (d, w) -> {
+                        // Clear session & reset all fake repos
+                        RetrofitClient.clearSession(this);
+                        FakeSocialRepository.resetInstance();
+                        com.example.weconnect.data.FakePostRepository.resetInstance();
+                        com.example.weconnect.data.FakeChatRepository.resetInstance();
+                        com.example.weconnect.data.FakeNotificationRepository.resetInstance();
                         Intent intent = new Intent(this, LoginActivity.class);
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                         startActivity(intent);
@@ -312,7 +324,39 @@ public class UserProfileActivity extends AppCompatActivity {
                 .setTitle("Xoá tài khoản")
                 .setMessage("Bạn có chắc chắn muốn xoá tài khoản? Hành động này không thể hoàn tác.")
                 .setPositiveButton("Xoá", (dialog, which) -> {
-                    Toast.makeText(this, "Đã gửi yêu cầu xoá tài khoản", Toast.LENGTH_SHORT).show();
+                    RetrofitClient.loadToken(this);
+                    com.example.weconnect.api.UserApiService userApi =
+                            RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
+                    userApi.deleteAccount().enqueue(new Callback<ApiResponse<Void>>() {
+                        @Override
+                        public void onResponse(Call<ApiResponse<Void>> call,
+                                               Response<ApiResponse<Void>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(UserProfileActivity.this,
+                                        "Đã xoá tài khoản thành công!", Toast.LENGTH_SHORT).show();
+                                // Clear session & reset all fake repos
+                                RetrofitClient.clearSession(UserProfileActivity.this);
+                                FakeSocialRepository.resetInstance();
+                                com.example.weconnect.data.FakePostRepository.resetInstance();
+                                com.example.weconnect.data.FakeChatRepository.resetInstance();
+                                com.example.weconnect.data.FakeNotificationRepository.resetInstance();
+                                // Navigate to login
+                                Intent intent = new Intent(UserProfileActivity.this, LoginActivity.class);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                startActivity(intent);
+                                finish();
+                            } else {
+                                Toast.makeText(UserProfileActivity.this,
+                                        "Không thể xoá tài khoản. Thử lại sau.", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                            Toast.makeText(UserProfileActivity.this,
+                                    "Lỗi kết nối server", Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 })
                 .setNegativeButton("Huỷ", null)
                 .show();
@@ -322,13 +366,16 @@ public class UserProfileActivity extends AppCompatActivity {
         username = getIntent().getStringExtra("username");
         boolean viewOther = getIntent().getBooleanExtra("view_other", false);
         long targetUserId = getIntent().getLongExtra("user_id", -1);
+        viewedUserId = targetUserId;
         
         if (username == null || username.isEmpty()) {
             if (targetUserId > 0) {
-                // Try to load username from user ID
                 username = "Người dùng #" + targetUserId;
             } else {
-                username = socialRepository.getCurrentUsername();
+                // Load tên thật từ SharedPreferences (đã lưu khi đăng nhập/đăng ký)
+                String savedName = RetrofitClient.getUserName(this);
+                username = (savedName != null && !savedName.isEmpty())
+                        ? savedName : socialRepository.getCurrentUsername();
             }
         }
 
@@ -342,6 +389,49 @@ public class UserProfileActivity extends AppCompatActivity {
 
         // Load interests from backend
         loadInterestsFromBackend();
+
+        // Load tên thật từ backend cho own profile
+        loadOwnProfileName();
+    }
+
+    private void loadOwnProfileName() {
+        boolean viewOther = getIntent().getBooleanExtra("view_other", false);
+        if (viewOther) return;
+
+        long targetUserId = getIntent().getLongExtra("user_id", -1);
+        if (targetUserId > 0) return; // Đang xem profile người khác
+
+        RetrofitClient.loadToken(this);
+        long myId = RetrofitClient.getUserId(this);
+        if (myId <= 0) return;
+
+        com.example.weconnect.api.UserApiService userApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
+
+        userApi.getUserProfile(myId).enqueue(new Callback<ApiResponse<java.util.Map<String, Object>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<java.util.Map<String, Object>>> call,
+                                   Response<ApiResponse<java.util.Map<String, Object>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null) {
+                    java.util.Map<String, Object> profile = response.body().getResult();
+                    String fullName = profile.get("fullName") != null
+                            ? profile.get("fullName").toString() : null;
+                    if (fullName != null && !fullName.isEmpty()) {
+                        username = fullName;
+                        tvUserProfileName.setText(fullName);
+                        // Cập nhật lại SharedPreferences
+                        RetrofitClient.saveUserName(UserProfileActivity.this, fullName);
+                        socialRepository.setCurrentUsername(fullName);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<java.util.Map<String, Object>>> call, Throwable t) {
+                // Giữ tên từ SharedPreferences
+            }
+        });
     }
 
     private void loadInterestsFromBackend() {
@@ -501,8 +591,32 @@ public class UserProfileActivity extends AppCompatActivity {
             tvNoActivePosts.setVisibility(View.GONE);
             rvActivePostsProfile.setVisibility(View.VISIBLE);
             rvActivePostsProfile.setLayoutManager(new LinearLayoutManager(this));
-            rvActivePostsProfile.setAdapter(new PostAdapter(this, activePosts));
+
+            // Nếu xem profile người khác → truyền viewer interests để kiểm soát nút tham gia
+            boolean viewOther = getIntent().getBooleanExtra("view_other", false);
+            if (viewOther) {
+                java.util.Set<String> myInterests = getMyInterestSet();
+                rvActivePostsProfile.setAdapter(new PostAdapter(this, activePosts, myInterests));
+            } else {
+                rvActivePostsProfile.setAdapter(new PostAdapter(this, activePosts));
+            }
         }
+    }
+
+    /**
+     * Lấy set sở thích của người đang đăng nhập (lowercase) từ SharedPreferences.
+     */
+    private java.util.Set<String> getMyInterestSet() {
+        android.content.SharedPreferences prefs = getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String saved = prefs.getString("user_interests", "");
+        java.util.Set<String> set = new java.util.HashSet<>();
+        if (!saved.isEmpty()) {
+            for (String tag : saved.split(",")) {
+                String trimmed = tag.trim().toLowerCase();
+                if (!trimmed.isEmpty()) set.add(trimmed);
+            }
+        }
+        return set;
     }
 
     /**
@@ -559,6 +673,9 @@ public class UserProfileActivity extends AppCompatActivity {
             return;
         }
 
+        // Lấy tên user hiện tại để loại bỏ bài của chính mình
+        String currentUserName = RetrofitClient.getUserName(this);
+
         // Dùng username của profile đang xem để loại bỏ bài của chính họ
         postApiService.getActivePosts().enqueue(new Callback<ApiResponse<java.util.List<PostResponse>>>() {
             @Override
@@ -569,9 +686,14 @@ public class UserProfileActivity extends AppCompatActivity {
                     java.util.List<Post> related = new ArrayList<>();
                     if (allPosts != null) {
                         for (PostResponse pr : allPosts) {
-                            // Bỏ qua bài của chính user đang xem
+                            // Bỏ qua bài của chính user đang xem profile
                             if (pr.getAuthorName() != null
                                     && pr.getAuthorName().equalsIgnoreCase(username)) {
+                                continue;
+                            }
+                            // Bỏ qua bài của chính mình (người đang đăng nhập)
+                            if (currentUserName != null && pr.getAuthorName() != null
+                                    && pr.getAuthorName().equalsIgnoreCase(currentUserName)) {
                                 continue;
                             }
                             // Lọc bài có tag trùng sở thích
@@ -612,45 +734,199 @@ public class UserProfileActivity extends AppCompatActivity {
         rvRelatedPosts.setVisibility(View.GONE);
     }
 
+    /**
+     * Load gợi ý user có sở thích chung.
+     * Hiển thị danh sách ngang: avatar + tên + nút "Thêm bạn bè".
+     * Chỉ hiện khi xem profile người khác.
+     */
+    private void loadSuggestedUsers() {
+        long targetUserId = getIntent().getLongExtra("user_id", -1);
+        if (targetUserId <= 0) return;
+
+        RetrofitClient.loadToken(this);
+        com.example.weconnect.api.UserApiService userApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
+
+        userApi.getSuggestions(targetUserId).enqueue(new Callback<ApiResponse<java.util.List<Map<String, Object>>>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<java.util.List<Map<String, Object>>>> call,
+                                   Response<ApiResponse<java.util.List<Map<String, Object>>>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResult() != null
+                        && !response.body().getResult().isEmpty()) {
+                    showSuggestedUsersUI(response.body().getResult());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<java.util.List<Map<String, Object>>>> call, Throwable t) {
+                // Không hiện nếu lỗi
+            }
+        });
+    }
+
+    private void showSuggestedUsersUI(java.util.List<Map<String, Object>> suggestions) {
+        try {
+            // Tìm vị trí chèn (sau phần related posts, trước reviews)
+            LinearLayout mainContent = (LinearLayout) tvRelatedPostsTitle.getParent();
+            if (mainContent == null) return;
+
+            // Xóa phần gợi ý cũ nếu đã có (tránh trùng lặp khi onResume)
+            View existingTitle = mainContent.findViewWithTag("suggest_title");
+            View existingScroll = mainContent.findViewWithTag("suggest_scroll");
+            if (existingTitle != null) mainContent.removeView(existingTitle);
+            if (existingScroll != null) mainContent.removeView(existingScroll);
+
+            // Tạo tiêu đề "Gợi ý cho bạn"
+            TextView tvSuggestTitle = new TextView(this);
+            tvSuggestTitle.setTag("suggest_title");
+            tvSuggestTitle.setText("👤 Gợi ý cho bạn");
+            tvSuggestTitle.setTextSize(18);
+            tvSuggestTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvSuggestTitle.setTextColor(getResources().getColor(R.color.text_primary, getTheme()));
+            tvSuggestTitle.setPadding(48, 32, 48, 16);
+
+            // Tạo HorizontalScrollView chứa danh sách user
+            android.widget.HorizontalScrollView scrollView = new android.widget.HorizontalScrollView(this);
+            scrollView.setTag("suggest_scroll");
+            scrollView.setHorizontalScrollBarEnabled(false);
+            scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+            LinearLayout userRow = new LinearLayout(this);
+            userRow.setOrientation(LinearLayout.HORIZONTAL);
+            userRow.setPadding(32, 8, 32, 24);
+
+            float density = getResources().getDisplayMetrics().density;
+
+            for (Map<String, Object> item : suggestions) {
+                String name = item.get("fullName") != null ? item.get("fullName").toString() : "Người dùng";
+                long userId = -1;
+                try {
+                    if (item.get("id") != null) userId = ((Number) item.get("id")).longValue();
+                } catch (Exception ignored) {}
+
+                // Card cho mỗi user
+                com.google.android.material.card.MaterialCardView card =
+                        new com.google.android.material.card.MaterialCardView(this);
+                LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                        (int) (140 * density), LinearLayout.LayoutParams.WRAP_CONTENT);
+                cardParams.setMargins(12, 0, 12, 0);
+                card.setLayoutParams(cardParams);
+                card.setRadius(24f);
+                card.setCardElevation(4f);
+                card.setCardBackgroundColor(getResources().getColor(R.color.card_surface, getTheme()));
+
+                LinearLayout cardContent = new LinearLayout(this);
+                cardContent.setOrientation(LinearLayout.VERTICAL);
+                cardContent.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+                cardContent.setPadding(24, 28, 24, 24);
+
+                // Avatar
+                ImageView avatar = new ImageView(this);
+                avatar.setImageResource(R.drawable.ic_user_placeholder);
+                LinearLayout.LayoutParams avatarParams = new LinearLayout.LayoutParams(160, 160);
+                avatar.setLayoutParams(avatarParams);
+                avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                cardContent.addView(avatar);
+
+                // Tên
+                TextView tvName = new TextView(this);
+                tvName.setText(name);
+                tvName.setTextSize(13);
+                tvName.setTextColor(getResources().getColor(R.color.text_primary, getTheme()));
+                tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+                tvName.setGravity(android.view.Gravity.CENTER);
+                tvName.setMaxLines(2);
+                tvName.setPadding(0, 12, 0, 8);
+                cardContent.addView(tvName);
+
+                // Nút "Thêm bạn bè" - dùng Button thường thay vì MaterialButton
+                android.widget.Button btnAdd = new android.widget.Button(this);
+                btnAdd.setText("+ Thêm");
+                btnAdd.setTextSize(11);
+                btnAdd.setAllCaps(false);
+                btnAdd.setTextColor(0xFFFFFFFF);
+                btnAdd.setBackgroundResource(R.drawable.bg_selected_tag);
+                LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, (int) (36 * density));
+                btnAdd.setLayoutParams(btnParams);
+                btnAdd.setPadding(0, 0, 0, 0);
+
+                final String friendName = name;
+                btnAdd.setOnClickListener(v -> {
+                    socialRepository.sendFriendRequest(friendName);
+                    btnAdd.setText("Đã gửi");
+                    btnAdd.setEnabled(false);
+                    btnAdd.setAlpha(0.6f);
+                    Toast.makeText(this, "Đã gửi lời mời kết bạn tới " + friendName, Toast.LENGTH_SHORT).show();
+                });
+                cardContent.addView(btnAdd);
+
+                card.addView(cardContent);
+
+                // Click vào card -> xem profile
+                final long fUserId = userId;
+                card.setOnClickListener(v -> {
+                    Intent intent = new Intent(this, UserProfileActivity.class);
+                    intent.putExtra("username", friendName);
+                    if (fUserId > 0) intent.putExtra("user_id", fUserId);
+                    intent.putExtra("view_other", true);
+                    startActivity(intent);
+                });
+
+                userRow.addView(card);
+            }
+
+            scrollView.addView(userRow);
+
+            // Chèn vào layout (sau related posts)
+            int insertIndex = mainContent.indexOfChild(rvRelatedPosts);
+            if (insertIndex >= 0) {
+                mainContent.addView(tvSuggestTitle, insertIndex + 1);
+                mainContent.addView(scrollView, insertIndex + 2);
+            } else {
+                mainContent.addView(tvSuggestTitle);
+                mainContent.addView(scrollView);
+            }
+        } catch (Exception e) {
+            // Tránh crash nếu có lỗi UI
+            e.printStackTrace();
+        }
+    }
+
     private void bindSocialState() {
         boolean viewOther = getIntent().getBooleanExtra("view_other", false);
-        FakeSocialRepository.SocialState state = socialRepository.getState(username);
-
-        // If explicitly viewing another user from notifications, force it
-        boolean isOwnProfile = state.isSelfProfile() && !viewOther;
+        long myUserId = RetrofitClient.getUserId(this);
+        boolean isOwnProfile = !viewOther && (viewedUserId == -1 || viewedUserId == myUserId);
 
         if (isOwnProfile) {
-            // Hồ sơ của mình: ẩn close, hiện menu ☰, hiện bạn bè + kho lưu trữ
+            // === Hồ sơ của mình ===
             ivBackUserProfile.setVisibility(View.GONE);
             ivMenuProfile.setVisibility(View.VISIBLE);
             tvFriendCount.setVisibility(View.VISIBLE);
-            tvFriendCount.setText("👥 Bạn bè: " + socialRepository.getFriendCount());
-            tvFriendCount.setOnClickListener(v -> showFriendListDialog());
             layoutSocialButtons.setVisibility(View.GONE);
             layoutRateReport.setVisibility(View.GONE);
             btnViewArchive.setVisibility(View.VISIBLE);
-            ivMenuProfile.setVisibility(View.VISIBLE);
             footerNavigationProfile.setVisibility(View.VISIBLE);
 
-            // Avatar click → show options
             ivUserProfileAvatar.setOnClickListener(v -> showAvatarOptionsSheet());
-
-            // Show create post section for self profile
             cardCreatePostProfile.setVisibility(View.VISIBLE);
             cardCreatePostProfile.setOnClickListener(v -> {
                 Intent intent = new Intent(this, CreatePostActivity.class);
                 createPostLauncher.launch(intent);
             });
 
-            // Show interests and posts
             tvInterestsTitle.setVisibility(View.VISIBLE);
             cardInterests.setVisibility(View.VISIBLE);
             tvActivePostsTitle.setVisibility(View.VISIBLE);
             rvActivePostsProfile.setVisibility(View.VISIBLE);
+
+            // Load số bạn bè từ backend
+            loadFriendCountFromApi();
             return;
         }
 
-        // Hồ sơ người khác: hiện close, ẩn menu
+        // === Hồ sơ người khác ===
         ivBackUserProfile.setVisibility(View.VISIBLE);
         ivMenuProfile.setVisibility(View.GONE);
         tvFriendCount.setVisibility(View.GONE);
@@ -660,7 +936,6 @@ public class UserProfileActivity extends AppCompatActivity {
         footerNavigationProfile.setVisibility(View.GONE);
         cardCreatePostProfile.setVisibility(View.GONE);
 
-        // Default: show interests and posts (will be hidden for blocked)
         tvInterestsTitle.setVisibility(View.VISIBLE);
         cardInterests.setVisibility(View.VISIBLE);
         tvActivePostsTitle.setVisibility(View.VISIBLE);
@@ -668,23 +943,67 @@ public class UserProfileActivity extends AppCompatActivity {
         tvReviewsTitle.setVisibility(View.VISIBLE);
         rvUserReviews.setVisibility(View.VISIBLE);
 
-        // Rate & Report click listeners
+        loadSuggestedUsers();
         btnRateUser.setOnClickListener(v -> showRateUserDialog());
         btnReportUser.setOnClickListener(v -> showReportUserDialog());
-
-        // Avatar click disabled for other profile
         ivUserProfileAvatar.setOnClickListener(null);
         ivUserProfileAvatar.setClickable(false);
 
-        FakeSocialRepository.FriendStatus status = state.getFriendStatus();
+        // Load trạng thái bạn bè từ backend
+        if (viewedUserId > 0) {
+            loadFriendStatusFromApi(viewedUserId);
+        } else {
+            // Fallback: không có user ID, hiện nút mặc định
+            setupFriendButton("NONE");
+        }
+    }
 
+    private void loadFriendCountFromApi() {
+        friendApiService.getFriendCount().enqueue(new Callback<ApiResponse<Integer>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Integer>> call, Response<ApiResponse<Integer>> response) {
+                int count = 0;
+                if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
+                    count = response.body().getResult();
+                }
+                int finalCount = count;
+                tvFriendCount.setText("👥 Bạn bè: " + finalCount);
+                tvFriendCount.setOnClickListener(v -> showFriendListDialog());
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Integer>> call, Throwable t) {
+                tvFriendCount.setText("👥 Bạn bè: 0");
+                tvFriendCount.setOnClickListener(v -> showFriendListDialog());
+            }
+        });
+    }
+
+    private void loadFriendStatusFromApi(long otherUserId) {
+        friendApiService.getFriendStatus(otherUserId).enqueue(new Callback<ApiResponse<String>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<String>> call, Response<ApiResponse<String>> response) {
+                String status = "NONE";
+                if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
+                    status = response.body().getResult();
+                }
+                setupFriendButton(status);
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<String>> call, Throwable t) {
+                setupFriendButton("NONE");
+            }
+        });
+    }
+
+    private void setupFriendButton(String status) {
         switch (status) {
-            case BLOCKED:
+            case "BLOCKED":
                 btnAddFriend.setText("Đã chặn");
                 btnAddFriend.setEnabled(false);
                 btnAddFriend.setAlpha(0.5f);
                 btnMessage.setVisibility(View.GONE);
-                // Hide interests and active posts for blocked user
                 tvInterestsTitle.setVisibility(View.GONE);
                 cardInterests.setVisibility(View.GONE);
                 tvActivePostsTitle.setVisibility(View.GONE);
@@ -694,12 +1013,11 @@ public class UserProfileActivity extends AppCompatActivity {
                 rvUserReviews.setVisibility(View.GONE);
                 break;
 
-            case FRIEND:
+            case "FRIEND":
                 btnAddFriend.setText("Bạn bè");
                 btnAddFriend.setEnabled(true);
                 btnAddFriend.setAlpha(1.0f);
                 btnMessage.setVisibility(View.VISIBLE);
-
                 btnAddFriend.setOnClickListener(v -> showFriendOptionsMenu());
                 btnMessage.setOnClickListener(v -> {
                     Intent intent = new Intent(this, ConversationActivity.class);
@@ -708,23 +1026,48 @@ public class UserProfileActivity extends AppCompatActivity {
                 });
                 break;
 
-            case PENDING_SENT:
+            case "PENDING_SENT":
                 btnAddFriend.setText("Đã gửi lời mời");
-                btnAddFriend.setEnabled(false);
-                btnAddFriend.setAlpha(0.6f);
+                btnAddFriend.setEnabled(true);
+                btnAddFriend.setAlpha(0.8f);
                 btnMessage.setVisibility(View.GONE);
+                btnAddFriend.setOnClickListener(v -> {
+                    // Hủy lời mời đã gửi
+                    friendApiService.cancelFriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                        @Override
+                        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(UserProfileActivity.this, "Đã hủy lời mời", Toast.LENGTH_SHORT).show();
+                                setupFriendButton("NONE");
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                            Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                });
                 break;
 
-            case PENDING_RECEIVED:
+            case "PENDING_RECEIVED":
                 btnAddFriend.setText("Chấp nhận kết bạn");
                 btnAddFriend.setEnabled(true);
                 btnAddFriend.setAlpha(1.0f);
                 btnMessage.setVisibility(View.GONE);
-
                 btnAddFriend.setOnClickListener(v -> {
-                    socialRepository.acceptFriendRequest(username);
-                    bindSocialState();
-                    Toast.makeText(this, "Đã chấp nhận kết bạn!", Toast.LENGTH_SHORT).show();
+                    friendApiService.acceptFriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                        @Override
+                        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(UserProfileActivity.this, "Đã chấp nhận kết bạn!", Toast.LENGTH_SHORT).show();
+                                setupFriendButton("FRIEND");
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                            Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 });
                 break;
 
@@ -733,11 +1076,26 @@ public class UserProfileActivity extends AppCompatActivity {
                 btnAddFriend.setEnabled(true);
                 btnAddFriend.setAlpha(1.0f);
                 btnMessage.setVisibility(View.GONE);
-
                 btnAddFriend.setOnClickListener(v -> {
-                    socialRepository.sendFriendRequest(username);
-                    bindSocialState();
-                    Toast.makeText(this, "Đã gửi lời mời kết bạn", Toast.LENGTH_SHORT).show();
+                    if (viewedUserId <= 0) {
+                        Toast.makeText(this, "Không thể thêm bạn bè", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    friendApiService.sendFriendRequest(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                        @Override
+                        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(UserProfileActivity.this, "Đã gửi lời mời kết bạn", Toast.LENGTH_SHORT).show();
+                                setupFriendButton("PENDING_SENT");
+                            } else {
+                                Toast.makeText(UserProfileActivity.this, "Không thể gửi lời mời", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                            Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 });
                 break;
         }
@@ -769,59 +1127,94 @@ public class UserProfileActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, 2));
         root.addView(div);
 
-        List<String> friends = socialRepository.getFriendNames();
+        // Loading indicator
+    TextView tvLoading = new TextView(this);
+    tvLoading.setText("Đang tải...");
+    tvLoading.setTextSize(15);
+    tvLoading.setTextColor(getResources().getColor(R.color.text_secondary, null));
+    tvLoading.setGravity(Gravity.CENTER);
+    tvLoading.setPadding(0, 48, 0, 48);
+    root.addView(tvLoading);
+    sheet.setContentView(root);
+    sheet.show();
 
-        if (friends.isEmpty()) {
-            TextView tvEmpty = new TextView(this);
-            tvEmpty.setText("Bạn chưa có bạn bè nào");
-            tvEmpty.setTextSize(15);
-            tvEmpty.setTextColor(getResources().getColor(R.color.text_secondary, null));
-            tvEmpty.setGravity(Gravity.CENTER);
-            tvEmpty.setPadding(0, 48, 0, 48);
-            root.addView(tvEmpty);
-        } else {
-            for (String friendName : friends) {
-                LinearLayout row = new LinearLayout(this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setGravity(Gravity.CENTER_VERTICAL);
-                row.setPadding(64, 32, 64, 32);
-                row.setBackgroundResource(android.R.drawable.list_selector_background);
-                row.setClickable(true);
-                row.setFocusable(true);
+    // Load từ backend
+    friendApiService.getFriends().enqueue(new Callback<ApiResponse<java.util.List<java.util.Map<String, Object>>>>() {
+        @Override
+        public void onResponse(Call<ApiResponse<java.util.List<java.util.Map<String, Object>>>> call,
+                               Response<ApiResponse<java.util.List<java.util.Map<String, Object>>>> response) {
+            root.removeView(tvLoading);
+            if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
+                java.util.List<java.util.Map<String, Object>> friendsList = response.body().getResult();
+                if (friendsList.isEmpty()) {
+                    TextView tvEmpty = new TextView(UserProfileActivity.this);
+                    tvEmpty.setText("Bạn chưa có bạn bè nào");
+                    tvEmpty.setTextSize(15);
+                    tvEmpty.setTextColor(getResources().getColor(R.color.text_secondary, null));
+                    tvEmpty.setGravity(Gravity.CENTER);
+                    tvEmpty.setPadding(0, 48, 0, 48);
+                    root.addView(tvEmpty);
+                } else {
+                    for (java.util.Map<String, Object> friend : friendsList) {
+                        String friendName = friend.get("fullName") != null
+                                ? friend.get("fullName").toString() : "Người dùng";
+                        long friendId = -1;
+                        try {
+                            if (friend.get("userId") != null)
+                                friendId = ((Number) friend.get("userId")).longValue();
+                        } catch (Exception ignored) {}
 
-                TextView tvIcon = new TextView(this);
-                tvIcon.setText("👤");
-                tvIcon.setTextSize(22);
-                row.addView(tvIcon);
+                        LinearLayout row = new LinearLayout(UserProfileActivity.this);
+                        row.setOrientation(LinearLayout.HORIZONTAL);
+                        row.setGravity(Gravity.CENTER_VERTICAL);
+                        row.setPadding(64, 32, 64, 32);
+                        row.setBackgroundResource(android.R.drawable.list_selector_background);
+                        row.setClickable(true);
+                        row.setFocusable(true);
 
-                TextView tvName = new TextView(this);
-                tvName.setText(friendName);
-                tvName.setTextSize(16);
-                tvName.setTextColor(getResources().getColor(R.color.text_primary, null));
-                tvName.setTypeface(null, android.graphics.Typeface.BOLD);
-                tvName.setPadding(32, 0, 0, 0);
-                row.addView(tvName);
+                        TextView tvIcon = new TextView(UserProfileActivity.this);
+                        tvIcon.setText("👤");
+                        tvIcon.setTextSize(22);
+                        row.addView(tvIcon);
 
-                row.setOnClickListener(v -> {
-                    sheet.dismiss();
-                    Intent intent = new Intent(this, UserProfileActivity.class);
-                    intent.putExtra("username", friendName);
-                    startActivity(intent);
-                });
+                        TextView tvName = new TextView(UserProfileActivity.this);
+                        tvName.setText(friendName);
+                        tvName.setTextSize(16);
+                        tvName.setTextColor(getResources().getColor(R.color.text_primary, null));
+                        tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+                        tvName.setPadding(32, 0, 0, 0);
+                        row.addView(tvName);
 
-                root.addView(row);
+                        final long fId = friendId;
+                        final String fName = friendName;
+                        row.setOnClickListener(v -> {
+                            sheet.dismiss();
+                            Intent intent = new Intent(UserProfileActivity.this, UserProfileActivity.class);
+                            intent.putExtra("username", fName);
+                            intent.putExtra("user_id", fId);
+                            intent.putExtra("view_other", true);
+                            startActivity(intent);
+                        });
+                        root.addView(row);
 
-                // Separator
-                View sep = new View(this);
-                sep.setBackgroundColor(0xFFE8E4DE);
-                sep.setLayoutParams(new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, 1));
-                root.addView(sep);
+                        View sep = new View(UserProfileActivity.this);
+                        sep.setBackgroundColor(0xFFE8E4DE);
+                        sep.setLayoutParams(new LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT, 1));
+                        root.addView(sep);
+                    }
+                }
+            } else {
+                tvLoading.setText("Không thể tải danh sách bạn bè");
+                root.addView(tvLoading);
             }
         }
 
-        sheet.setContentView(root);
-        sheet.show();
+        @Override
+        public void onFailure(Call<ApiResponse<java.util.List<java.util.Map<String, Object>>>> call, Throwable t) {
+            tvLoading.setText("Lỗi kết nối");
+        }
+    });
     }
 
     private void showFriendOptionsMenu() {
@@ -860,9 +1253,21 @@ public class UserProfileActivity extends AppCompatActivity {
                     .setTitle("Huỷ kết bạn")
                     .setMessage("Bạn có chắc muốn huỷ kết bạn với " + username + "?")
                     .setPositiveButton("Huỷ kết bạn", (d, w) -> {
-                        socialRepository.unfriend(username);
-                        bindSocialState();
-                        Toast.makeText(this, "Đã huỷ kết bạn", Toast.LENGTH_SHORT).show();
+                        if (viewedUserId > 0) {
+                        friendApiService.unfriend(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                                if (response.isSuccessful()) {
+                                    Toast.makeText(UserProfileActivity.this, "Đã huỷ kết bạn", Toast.LENGTH_SHORT).show();
+                                    setupFriendButton("NONE");
+                                }
+                            }
+                            @Override
+                            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                                Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
                     })
                     .setNegativeButton("Không", null)
                     .show();
@@ -886,9 +1291,21 @@ public class UserProfileActivity extends AppCompatActivity {
                     .setTitle("Chặn người dùng")
                     .setMessage("Bạn có chắc muốn chặn " + username + "? Người này sẽ không thể liên hệ với bạn.")
                     .setPositiveButton("Chặn", (d, w) -> {
-                        socialRepository.blockUser(username);
-                        bindSocialState();
-                        Toast.makeText(this, "Đã chặn người dùng", Toast.LENGTH_SHORT).show();
+                        if (viewedUserId > 0) {
+                        friendApiService.blockUser(viewedUserId).enqueue(new Callback<ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                                if (response.isSuccessful()) {
+                                    Toast.makeText(UserProfileActivity.this, "Đã chặn người dùng", Toast.LENGTH_SHORT).show();
+                                    setupFriendButton("BLOCKED");
+                                }
+                            }
+                            @Override
+                            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                                Toast.makeText(UserProfileActivity.this, "Lỗi kết nối", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
                     })
                     .setNegativeButton("Không", null)
                     .show();
@@ -1255,6 +1672,46 @@ public class UserProfileActivity extends AppCompatActivity {
                 ivUserProfileAvatar.setImageURI(selectedImage);
                 Toast.makeText(this, "Đã cập nhật ảnh đại diện!", Toast.LENGTH_SHORT).show();
             }
+        } else if (requestCode == 2001 && resultCode == RESULT_OK && data != null) {
+            long editPostId = data.getLongExtra("edit_post_id", -1);
+            if (editPostId != -1) {
+                updatePostViaApi(editPostId, data);
+            }
         }
+    }
+
+    private void updatePostViaApi(long postId, Intent data) {
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("content", data.getStringExtra("post_content"));
+        body.put("interestTag", data.getStringExtra("post_tag"));
+        body.put("location", data.getStringExtra("post_location"));
+        body.put("maxMembers", data.getIntExtra("post_max_members", 10));
+        String imageUri = data.getStringExtra("post_image_uri");
+        if (imageUri != null) body.put("imageUrl", imageUri);
+
+        long endTimeMillis = data.getLongExtra("post_end_time", System.currentTimeMillis() + 24L * 60L * 60L * 1000L);
+        java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault());
+        body.put("endTime", isoFormat.format(new java.util.Date(endTimeMillis)));
+
+        RetrofitClient.loadToken(this);
+        com.example.weconnect.api.PostApiService postApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.PostApiService.class);
+        postApi.updatePost(postId, body).enqueue(new Callback<ApiResponse<com.example.weconnect.models.PostResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call,
+                                   Response<ApiResponse<com.example.weconnect.models.PostResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(UserProfileActivity.this, "Đã cập nhật bài viết!", Toast.LENGTH_SHORT).show();
+                    bindActivePosts();
+                } else {
+                    Toast.makeText(UserProfileActivity.this, "Không thể cập nhật bài viết", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<com.example.weconnect.models.PostResponse>> call, Throwable t) {
+                Toast.makeText(UserProfileActivity.this, "Lỗi kết nối server", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

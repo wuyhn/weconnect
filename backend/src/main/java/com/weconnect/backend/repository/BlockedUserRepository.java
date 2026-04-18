@@ -13,4 +13,7 @@ public interface BlockedUserRepository extends JpaRepository<BlockedUser, Long> 
     List<BlockedUser> findByBlockerId(Long blockerId);
 
     boolean existsByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
+
+    // Tất cả blocked records liên quan đến user (dùng cho cascade delete)
+    List<BlockedUser> findByBlockerIdOrBlockedId(Long blockerId, Long blockedId);
 }

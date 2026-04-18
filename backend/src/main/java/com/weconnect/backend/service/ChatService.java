@@ -84,6 +84,51 @@ public class ChatService {
 
         return toRoomResponse(room);
     }
+    // Tạo phòng nhóm hoạt động (linked to post)
+    public ChatRoomResponse createActivityChatRoom(Long postId, Long ownerId, String title) {
+        // Kiểm tra đã có phòng cho post này chưa
+        var existing = chatRoomRepository.findByPostId(postId);
+        if (existing.isPresent()) {
+            return toRoomResponse(existing.get());
+        }
+
+        ChatRoom room = ChatRoom.builder()
+                .title(title)
+                .type(ChatRoom.TYPE_ACTIVITY)
+                .ownerId(ownerId)
+                .postId(postId)
+                .active(true)
+                .build();
+        room = chatRoomRepository.save(room);
+
+        // Thêm owner làm member
+        chatRoomMemberRepository.save(ChatRoomMember.builder()
+                .roomId(room.getId())
+                .userId(ownerId)
+                .role(ChatRoomMember.Role.OWNER)
+                .build());
+
+        return toRoomResponse(room);
+    }
+
+    // Thêm user vào phòng chat hoạt động
+    public void addMemberToActivityRoom(Long postId, Long userId) {
+        var roomOpt = chatRoomRepository.findByPostId(postId);
+        if (roomOpt.isEmpty()) return;
+
+        ChatRoom room = roomOpt.get();
+        // Kiểm tra xem user đã là member chưa
+        var existingMembers = chatRoomMemberRepository.findByRoomId(room.getId());
+        boolean alreadyMember = existingMembers.stream()
+                .anyMatch(m -> m.getUserId().equals(userId));
+        if (alreadyMember) return;
+
+        chatRoomMemberRepository.save(ChatRoomMember.builder()
+                .roomId(room.getId())
+                .userId(userId)
+                .role(ChatRoomMember.Role.MEMBER)
+                .build());
+    }
 
     // Lấy hoặc tạo phòng DM
     public ChatRoomResponse getOrCreateDirectRoom(Long user1Id, Long user2Id) {

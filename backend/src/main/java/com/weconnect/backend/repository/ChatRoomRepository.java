@@ -18,4 +18,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     // Tìm kiếm phòng
     List<ChatRoom> findByTitleContainingIgnoreCase(String query);
+
+    // Tìm phòng chat hoạt động theo postId
+    Optional<ChatRoom> findByPostId(Long postId);
 }

@@ -133,6 +133,65 @@ public class CreatePostActivity extends AppCompatActivity {
                 handleExit();
             }
         });
+
+        // === Edit mode: pre-fill fields ===
+        if (getIntent().getBooleanExtra("edit_mode", false)) {
+            btnPost.setText("Cập nhật");
+
+            String editContent = getIntent().getStringExtra("edit_content");
+            if (editContent != null) etPostContent.setText(editContent);
+
+            String editTag = getIntent().getStringExtra("edit_tag");
+            if (editTag != null && !editTag.isEmpty()) {
+                selectedTag = editTag;
+                tvSelectedTag.setText(selectedTag);
+                cardSelectedTag.setVisibility(View.VISIBLE);
+            }
+
+            String editLocation = getIntent().getStringExtra("edit_location");
+            if (editLocation != null && !editLocation.isEmpty()) {
+                selectedLocation = editLocation;
+                tvSelectedLocation.setText("📍 " + selectedLocation);
+                cardSelectedLocation.setVisibility(View.VISIBLE);
+            }
+
+            int editMaxMembers = getIntent().getIntExtra("edit_max_members", 0);
+            if (editMaxMembers > 0) {
+                participantLimit = editMaxMembers;
+                tvParticipantLimit.setText("👥 Giới hạn: " + participantLimit + " người");
+                cardParticipantLimit.setVisibility(View.VISIBLE);
+            }
+
+            long editEndTime = getIntent().getLongExtra("edit_end_time", 0);
+            if (editEndTime > 0) {
+                long remaining = editEndTime - System.currentTimeMillis();
+                if (remaining > 0) {
+                    selectedDurationMillis = remaining;
+                    long hours = remaining / ONE_HOUR;
+                    long minutes = (remaining % ONE_HOUR) / (60L * 1000L);
+                    StringBuilder label = new StringBuilder();
+                    if (hours > 0) label.append(hours).append(" giờ");
+                    if (minutes > 0) {
+                        if (hours > 0) label.append(" ");
+                        label.append(minutes).append(" phút");
+                    }
+                    selectedDurationLabel = label.toString();
+                    tvSelectedDuration.setText("⏰ Thời hạn: " + selectedDurationLabel);
+                    cardSelectedDuration.setVisibility(View.VISIBLE);
+                }
+            }
+
+            String editImageUri = getIntent().getStringExtra("edit_image_uri");
+            if (editImageUri != null && !editImageUri.isEmpty()) {
+                selectedImageUri = Uri.parse(editImageUri);
+                if (ivPostImagePreview != null) {
+                    try {
+                        ivPostImagePreview.setImageURI(selectedImageUri);
+                        ivPostImagePreview.setVisibility(View.VISIBLE);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
     }
 
     private void handlePost() {
@@ -171,6 +230,11 @@ public class CreatePostActivity extends AppCompatActivity {
         result.putExtra("post_end_time", now + selectedDurationMillis);
         if (selectedImageUri != null) {
             result.putExtra("post_image_uri", selectedImageUri.toString());
+        }
+        // Nếu đang ở edit mode, truyền lại post ID
+        long editPostId = getIntent().getLongExtra("edit_post_id", -1);
+        if (editPostId != -1) {
+            result.putExtra("edit_post_id", editPostId);
         }
         setResult(RESULT_OK, result);
         finish();

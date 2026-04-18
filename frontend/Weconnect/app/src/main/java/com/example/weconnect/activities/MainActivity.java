@@ -79,9 +79,44 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        syncInterestsFromBackend();
         loadPostsFromApi();
         loadUnreadNotificationCount();
         highlightTab(btnHome);
+    }
+
+    /**
+     * Đồng bộ sở thích từ backend vào SharedPreferences.
+     * Đảm bảo tag filter luôn có dữ liệu.
+     */
+    private void syncInterestsFromBackend() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
+        String saved = prefs.getString("user_interests", "");
+        if (saved != null && !saved.isEmpty()) return; // Đã có sẵn
+
+        RetrofitClient.loadToken(this);
+        com.example.weconnect.api.UserApiService userApi =
+                RetrofitClient.getClient().create(com.example.weconnect.api.UserApiService.class);
+        userApi.getInterests().enqueue(new Callback<com.example.weconnect.models.ApiResponse<java.util.List<String>>>() {
+            @Override
+            public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call,
+                                   retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.List<String>>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getResult() != null) {
+                    java.util.List<String> interests = response.body().getResult();
+                    if (!interests.isEmpty()) {
+                        prefs.edit().putString("user_interests", String.join(",", interests)).apply();
+                        // Reload posts với filter mới
+                        loadPostsFromApi();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.List<String>>> call, Throwable t) {
+                // Bỏ qua - dùng dữ liệu cũ
+            }
+        });
     }
 
     private void loadUnreadNotificationCount() {
@@ -182,12 +217,23 @@ public class MainActivity extends AppCompatActivity {
         body.put("startTime", isoFormat.format(new Date()));
         body.put("endTime", isoFormat.format(new Date(endTimeMillis)));
 
+        final String postTag = tag;
+        final String currentUser = RetrofitClient.getUserName(this);
+
         postApiService.createPost(body).enqueue(new Callback<ApiResponse<PostResponse>>() {
             @Override
             public void onResponse(Call<ApiResponse<PostResponse>> call,
                                    Response<ApiResponse<PostResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     Toast.makeText(MainActivity.this, "Đã tạo bài đăng!", Toast.LENGTH_SHORT).show();
+
+                    // Tự động tạo group chat cho bài post
+                    PostResponse pr = response.body().getResult();
+                    String postId = pr != null && pr.getId() != null ? String.valueOf(pr.getId()) : String.valueOf(System.currentTimeMillis());
+                    String chatTitle = postTag + " - " + (currentUser != null ? currentUser : "Tổ chức");
+                    com.example.weconnect.data.FakeChatRepository.getInstance()
+                            .getOrCreateActivityGroupChat(postId, chatTitle, currentUser);
+
                     loadPostsFromApi();
                 } else {
                     String errorMsg = "Không thể tạo bài đăng";
@@ -332,8 +378,8 @@ public class MainActivity extends AppCompatActivity {
             // Bỏ qua bài hết hạn hoặc đã đóng
             if (post.isExpired() || post.isArchived()) continue;
 
-            // Bỏ qua bài không đúng sở thích (nếu user đã chọn sở thích)
-            if (!userInterests.isEmpty() && post.getInterestTag() != null) {
+            // Bắt buộc lọc theo tag: bài viết phải có tag trùng sở thích của user
+            if (post.getInterestTag() != null && !post.getInterestTag().trim().isEmpty()) {
                 boolean matchTag = false;
                 for (String interest : userInterests) {
                     if (interest.equalsIgnoreCase(post.getInterestTag().trim())) {
@@ -341,7 +387,10 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                 }
-                if (!matchTag) continue;
+                // Luôn cho phép bài của chính mình hiện
+                if (!matchTag && (currentUser == null || !post.getUsername().equalsIgnoreCase(currentUser))) {
+                    continue;
+                }
             }
 
             // 3. Phân loại: bài của bạn bè vs người lạ
@@ -365,6 +414,12 @@ public class MainActivity extends AppCompatActivity {
         android.content.SharedPreferences prefs =
                 getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
         String saved = prefs.getString("user_interests", "");
+        
+        // Nếu trống, thử load từ API (giả định có endpoint lấy profile)
+        if (saved.isEmpty()) {
+            // Logic load từ API có thể thêm ở đây nếu cần đồng bộ
+        }
+
         Set<String> tags = new HashSet<>();
         if (!saved.isEmpty()) {
             for (String s : saved.split(",")) {
@@ -385,14 +440,69 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void highlightTab(FrameLayout selectedTab) {
-        btnHome.setAlpha(0.5f);
-        btnMessages.setAlpha(0.5f);
-        btnNotifications.setAlpha(0.5f);
-        btnProfile.setAlpha(0.5f);
-        selectedTab.setAlpha(1.0f);
+        // Reset all tabs: full opacity + secondary tint
+        setTabTint(btnHome, R.color.text_secondary);
+        setTabTint(btnMessages, R.color.text_secondary);
+        setTabTint(btnNotifications, R.color.text_secondary);
+        setTabTint(btnProfile, R.color.text_secondary);
+        // Highlight selected tab with red tint
+        setTabTint(selectedTab, R.color.primary_pink);
+    }
+
+    private void setTabTint(FrameLayout tab, int colorResId) {
+        tab.setAlpha(1.0f);
+        // Find the ImageView inside the FrameLayout (first child)
+        if (tab.getChildAt(0) instanceof ImageView) {
+            ImageView icon = (ImageView) tab.getChildAt(0);
+            icon.setImageTintList(android.content.res.ColorStateList.valueOf(
+                    getResources().getColor(colorResId, getTheme())));
+        }
     }
 
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 2001 && resultCode == RESULT_OK && data != null) {
+            long editPostId = data.getLongExtra("edit_post_id", -1);
+            if (editPostId != -1) {
+                updatePostViaApi(editPostId, data);
+            }
+        }
+    }
+
+    private void updatePostViaApi(long postId, Intent data) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("content", data.getStringExtra("post_content"));
+        body.put("interestTag", data.getStringExtra("post_tag"));
+        body.put("location", data.getStringExtra("post_location"));
+        body.put("maxMembers", data.getIntExtra("post_max_members", 10));
+        String imageUri = data.getStringExtra("post_image_uri");
+        if (imageUri != null) body.put("imageUrl", imageUri);
+
+        long endTimeMillis = data.getLongExtra("post_end_time", System.currentTimeMillis() + 24L * 60L * 60L * 1000L);
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        body.put("endTime", isoFormat.format(new Date(endTimeMillis)));
+
+        postApiService.updatePost(postId, body).enqueue(new Callback<ApiResponse<PostResponse>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<PostResponse>> call,
+                                   Response<ApiResponse<PostResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(MainActivity.this, "Đã cập nhật bài viết!", Toast.LENGTH_SHORT).show();
+                    loadPostsFromApi();
+                } else {
+                    Toast.makeText(MainActivity.this, "Không thể cập nhật bài viết", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<PostResponse>> call, Throwable t) {
+                Toast.makeText(MainActivity.this, "Lỗi kết nối server", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

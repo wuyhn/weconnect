@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.weconnect.R;
 import com.example.weconnect.activities.UserProfileActivity;
+import com.example.weconnect.api.RetrofitClient;
 
 import java.util.List;
 
@@ -21,10 +22,16 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
     public static class Participant {
         public final String name;
         public final int avatarResId;
+        public final long userId;
 
         public Participant(String name, int avatarResId) {
+            this(name, avatarResId, -1);
+        }
+
+        public Participant(String name, int avatarResId, long userId) {
             this.name = name;
             this.avatarResId = avatarResId;
+            this.userId = userId;
         }
     }
 
@@ -50,8 +57,21 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
         holder.ivAvatar.setImageResource(p.avatarResId);
 
         View.OnClickListener openProfile = v -> {
+            // Lấy tên thật (bỏ hậu tố " (Người tổ chức)" nếu có)
+            String cleanName = p.name.replace(" (Người tổ chức)", "").trim();
+
+            // Kiểm tra xem có phải profile của mình không
+            long myUserId = RetrofitClient.getUserId(context);
+            boolean isOwnProfile = (p.userId > 0 && p.userId == myUserId);
+
             Intent intent = new Intent(context, UserProfileActivity.class);
-            intent.putExtra("username", p.name);
+            intent.putExtra("username", cleanName);
+            if (p.userId > 0) {
+                intent.putExtra("user_id", p.userId);
+            }
+            if (!isOwnProfile) {
+                intent.putExtra("view_other", true);
+            }
             context.startActivity(intent);
         };
 
@@ -74,3 +94,4 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
         }
     }
 }
+

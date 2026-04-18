@@ -126,4 +126,36 @@ public class UserController {
                     .build());
         }
     }
+
+    // Gợi ý user có cùng sở thích
+    @GetMapping("/suggestions")
+    public ResponseEntity<?> getSuggestions(Authentication authentication,
+                                            @RequestParam(required = false) Long excludeId) {
+        User currentUser = (User) authentication.getPrincipal();
+        List<Map<String, Object>> suggestions = userService.getSuggestedUsers(
+                currentUser.getId(), excludeId);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000)
+                .message("Thành công")
+                .result(suggestions)
+                .build());
+    }
+
+    // Xóa tài khoản — xóa ngay, không cần admin duyệt
+    @DeleteMapping("/me")
+    public ResponseEntity<?> deleteAccount(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        try {
+            userService.deleteUser(currentUser.getId());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000)
+                    .message("Đã xóa tài khoản thành công!")
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .code(1005)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
 }

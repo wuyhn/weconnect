@@ -17,4 +17,13 @@ public interface PostMemberRepository extends JpaRepository<PostMember, Long> {
     int countByPostIdAndStatus(Long postId, PostMember.Status status);
 
     boolean existsByPostIdAndUserId(Long postId, Long userId);
+
+    // Lấy danh sách bài đăng mà user tham gia theo trạng thái
+    List<PostMember> findByUserIdAndStatus(Long userId, PostMember.Status status);
+
+    // Tất cả memberships của user (dùng cho cascade delete)
+    List<PostMember> findByUserId(Long userId);
+
+    // Xóa tất cả members của một post
+    void deleteByPostId(Long postId);
 }

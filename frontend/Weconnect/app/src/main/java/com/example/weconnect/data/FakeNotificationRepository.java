@@ -55,6 +55,10 @@ public class FakeNotificationRepository {
         return instance;
     }
 
+    public static synchronized void resetInstance() {
+        instance = null;
+    }
+
     public List<NotificationItem> getNotifications() {
         return new ArrayList<>(notifications);
     }
@@ -72,46 +76,6 @@ public class FakeNotificationRepository {
     }
 
     private void seed() {
-        long now = System.currentTimeMillis();
-        long oneHour = 60L * 60L * 1000L;
-        long oneDay = 24L * oneHour;
-
-        // Hôm nay
-        notifications.add(new NotificationItem(
-                NotificationType.FRIEND_REQUEST_RECEIVED,
-                "Thu Hương đã gửi lời mời kết bạn đến bạn",
-                "Thu Hương",
-                now - 2 * oneHour
-        ));
-
-        notifications.add(new NotificationItem(
-                NotificationType.JOIN_REQUEST,
-                "Đức Anh muốn tham gia hoạt động \"Đá bóng cuối tuần\" của bạn",
-                "Đức Anh",
-                now - 4 * oneHour
-        ));
-
-        // Hôm qua
-        notifications.add(new NotificationItem(
-                NotificationType.FRIEND_ACCEPTED,
-                "Minh Hoàng đã chấp nhận lời mời kết bạn của bạn",
-                "Minh Hoàng",
-                now - oneDay - 3 * oneHour
-        ));
-
-        notifications.add(new NotificationItem(
-                NotificationType.JOIN_APPROVED,
-                "Bạn đã được duyệt tham gia hoạt động \"Cà phê sáng\"",
-                "Lan Anh",
-                now - oneDay - 6 * oneHour
-        ));
-
-        // 2 ngày trước
-        notifications.add(new NotificationItem(
-                NotificationType.GENERAL,
-                "Chào mừng bạn đến với WeConnect! Hãy tìm bạn mới ngay nào 🎉",
-                "",
-                now - 2 * oneDay
-        ));
+        // Không seed fake data - chỉ dùng dữ liệu thật từ backend
     }
 }

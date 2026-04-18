@@ -18,6 +18,7 @@ public class Post implements java.io.Serializable {
     private long startTimeMillis;
     private long endTimeMillis;
     private boolean archived;
+    private long authorId;
 
     public Post(String id, String username, String timeAgo, String content, String interestTag, String location,
                 int avatarResId, int imageResId, int memberCount, int likesCount,
@@ -93,4 +94,7 @@ public class Post implements java.io.Serializable {
     private String postImageUri;
     public String getPostImageUri() { return postImageUri; }
     public void setPostImageUri(String uri) { this.postImageUri = uri; }
+
+    public long getAuthorId() { return authorId; }
+    public void setAuthorId(long authorId) { this.authorId = authorId; }
 }

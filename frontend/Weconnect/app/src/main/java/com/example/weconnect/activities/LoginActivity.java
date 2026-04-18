@@ -93,6 +93,17 @@ public class LoginActivity extends AppCompatActivity {
                     RetrofitClient.saveUserId(LoginActivity.this, authResult.getId());
                     RetrofitClient.saveUserName(LoginActivity.this, authResult.getFullName());
 
+                    // Reset tất cả fake repos để tránh trộn dữ liệu giữa các tài khoản
+                    com.example.weconnect.data.FakeChatRepository.resetInstance();
+                    com.example.weconnect.data.FakePostRepository.resetInstance();
+                    com.example.weconnect.data.FakeSocialRepository.resetInstance();
+                    com.example.weconnect.data.FakeNotificationRepository.resetInstance();
+                    // Set username cho fake repos
+                    com.example.weconnect.data.FakePostRepository.getInstance()
+                            .setCurrentUsername(authResult.getFullName());
+                    com.example.weconnect.data.FakeSocialRepository.getInstance()
+                            .setCurrentUsername(authResult.getFullName());
+
                     Toast.makeText(LoginActivity.this, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);

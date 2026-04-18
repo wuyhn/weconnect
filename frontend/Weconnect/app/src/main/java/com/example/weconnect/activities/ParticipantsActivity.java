@@ -86,24 +86,34 @@ public class ParticipantsActivity extends AppCompatActivity {
                         String status = member.get("status") != null
                                 ? member.get("status").toString() : "";
 
+                        // Extract userId from API response
+                        long memberId = -1;
+                        try {
+                            if (member.get("userId") != null) {
+                                memberId = ((Number) member.get("userId")).longValue();
+                            }
+                        } catch (Exception ignored) {}
+
                         // Only show APPROVED members
                         if (!"APPROVED".equalsIgnoreCase(status)) continue;
 
                         boolean isAuthor = (postAuthor != null && name.equalsIgnoreCase(postAuthor));
                         if (isAuthor) {
                             participants.add(0, new ParticipantAdapter.Participant(
-                                    name + " (Người tổ chức)", R.drawable.ic_user_placeholder));
+                                    name + " (Người tổ chức)", R.drawable.ic_user_placeholder, memberId));
                             authorAdded = true;
                         } else {
                             participants.add(new ParticipantAdapter.Participant(
-                                    name, R.drawable.ic_user_placeholder));
+                                    name, R.drawable.ic_user_placeholder, memberId));
                         }
                     }
 
                     // If author wasn't in the members list, add them at the top
                     if (!authorAdded && postAuthor != null && !postAuthor.isEmpty()) {
+                        // Try to get author's userId from intent
+                        long authorUserId = getIntent().getLongExtra("author_user_id", -1);
                         participants.add(0, new ParticipantAdapter.Participant(
-                                postAuthor + " (Người tổ chức)", R.drawable.ic_user_placeholder));
+                                postAuthor + " (Người tổ chức)", R.drawable.ic_user_placeholder, authorUserId));
                     }
 
                     // Update count with real data

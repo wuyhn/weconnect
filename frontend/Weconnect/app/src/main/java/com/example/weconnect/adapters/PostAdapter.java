@@ -40,11 +40,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     private final List<Post> postList;
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM", Locale.getDefault());
     private final String currentUsername;
+    private java.util.Set<String> viewerInterests;
 
     public PostAdapter(Context context, List<Post> postList) {
         this.context = context;
         this.postList = postList;
         this.currentUsername = FakePostRepository.getInstance().getCurrentUsername();
+    }
+
+    /**
+     * Constructor với viewer interests để kiểm soát nút tham gia.
+     * Chỉ posts có tag trùng với interests của viewer mới hiện nút "Tham gia".
+     */
+    public PostAdapter(Context context, List<Post> postList, java.util.Set<String> viewerInterests) {
+        this(context, postList);
+        this.viewerInterests = viewerInterests;
     }
 
     @NonNull
@@ -64,8 +74,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.itemView.setOnClickListener(v -> openPostDetail(post));
 
         holder.ivAvatar.setImageResource(post.getAvatarResId());
-        holder.ivAvatar.setOnClickListener(v -> openUserProfile(post.getUsername()));
-        holder.tvUsername.setOnClickListener(v -> openUserProfile(post.getUsername()));
+        holder.ivAvatar.setOnClickListener(v -> openUserProfile(post.getUsername(), post.getAuthorId()));
+        holder.tvUsername.setOnClickListener(v -> openUserProfile(post.getUsername(), post.getAuthorId()));
 
         // Post image: URI từ thư viện hoặc resource id
         if (post.getPostImageUri() != null && !post.getPostImageUri().isEmpty()) {
@@ -130,6 +140,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             intent.putExtra("post_author", post.getUsername());
             intent.putExtra("member_count", post.getMemberCount());
             intent.putExtra("max_members", post.getMaxMembers());
+            intent.putExtra("author_user_id", post.getAuthorId());
             context.startActivity(intent);
         });
     }
@@ -187,94 +198,20 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     }
 
     private void showEditPostDialog(Post post, int position) {
-        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
-                new com.google.android.material.bottomsheet.BottomSheetDialog(context);
-        LinearLayout root = new LinearLayout(context);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(context.getResources().getColor(R.color.soft_beige, null));
-        root.setPadding(48, 40, 48, 48);
-
-        android.widget.TextView header = new android.widget.TextView(context);
-        header.setText("Chỉnh sửa bài viết");
-        header.setTextSize(20);
-        header.setTypeface(null, android.graphics.Typeface.BOLD);
-        header.setTextColor(context.getResources().getColor(R.color.primary_pink, null));
-        header.setGravity(android.view.Gravity.CENTER);
-        header.setPadding(0, 0, 0, 24);
-        root.addView(header);
-
-        // Content
-        com.google.android.material.textfield.TextInputLayout tilContent =
-                new com.google.android.material.textfield.TextInputLayout(context,
-                        null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        tilContent.setHint("Nội dung");
-        tilContent.setBoxCornerRadii(36, 36, 36, 36);
-        tilContent.setBoxStrokeColorStateList(android.content.res.ColorStateList.valueOf(
-                context.getResources().getColor(R.color.primary_pink, null)));
-        com.google.android.material.textfield.TextInputEditText etContent =
-                new com.google.android.material.textfield.TextInputEditText(context);
-        etContent.setText(post.getContent());
-        tilContent.addView(etContent);
-        root.addView(tilContent);
-
-        // Location
-        com.google.android.material.textfield.TextInputLayout tilLoc =
-                new com.google.android.material.textfield.TextInputLayout(context,
-                        null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        tilLoc.setHint("Địa điểm");
-        tilLoc.setBoxCornerRadii(36, 36, 36, 36);
-        LinearLayout.LayoutParams tilP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        tilP.topMargin = 24;
-        tilLoc.setLayoutParams(tilP);
-        com.google.android.material.textfield.TextInputEditText etLoc =
-                new com.google.android.material.textfield.TextInputEditText(context);
-        etLoc.setText(post.getLocation() != null ? post.getLocation() : "");
-        tilLoc.addView(etLoc);
-        root.addView(tilLoc);
-
-        // Tag
-        com.google.android.material.textfield.TextInputLayout tilTag =
-                new com.google.android.material.textfield.TextInputLayout(context,
-                        null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        tilTag.setHint("Sở thích");
-        tilTag.setBoxCornerRadii(36, 36, 36, 36);
-        LinearLayout.LayoutParams tilP2 = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        tilP2.topMargin = 24;
-        tilTag.setLayoutParams(tilP2);
-        com.google.android.material.textfield.TextInputEditText etTag =
-                new com.google.android.material.textfield.TextInputEditText(context);
-        etTag.setText(post.getInterestTag() != null ? post.getInterestTag() : "");
-        tilTag.addView(etTag);
-        root.addView(tilTag);
-
-        // Save button
-        com.google.android.material.button.MaterialButton btnSave =
-                new com.google.android.material.button.MaterialButton(context);
-        btnSave.setText("Lưu thay đổi");
-        btnSave.setAllCaps(false);
-        btnSave.setCornerRadius(72);
-        btnSave.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                context.getResources().getColor(R.color.primary_pink, null)));
-        LinearLayout.LayoutParams btnP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        btnP.topMargin = 36;
-        btnSave.setLayoutParams(btnP);
-        btnSave.setOnClickListener(v -> {
-            post.setContent(etContent.getText().toString());
-            post.setLocation(etLoc.getText().toString());
-            post.setInterestTag(etTag.getText().toString());
-            notifyItemChanged(position);
-            Toast.makeText(context, "Đã cập nhật bài viết", Toast.LENGTH_SHORT).show();
-            sheet.dismiss();
-        });
-        root.addView(btnSave);
-
-        android.widget.ScrollView scrollView2 = new android.widget.ScrollView(context);
-        scrollView2.addView(root);
-        sheet.setContentView(scrollView2);
-        sheet.show();
+        Intent intent = new Intent(context, com.example.weconnect.activities.CreatePostActivity.class);
+        intent.putExtra("edit_mode", true);
+        intent.putExtra("edit_post_id", Long.parseLong(post.getId()));
+        intent.putExtra("edit_content", post.getContent());
+        intent.putExtra("edit_tag", post.getInterestTag());
+        intent.putExtra("edit_location", post.getLocation());
+        intent.putExtra("edit_max_members", post.getMaxMembers());
+        intent.putExtra("edit_end_time", post.getEndTimeMillis());
+        if (post.getPostImageUri() != null) {
+            intent.putExtra("edit_image_uri", post.getPostImageUri());
+        }
+        if (context instanceof android.app.Activity) {
+            ((android.app.Activity) context).startActivityForResult(intent, 2001);
+        }
     }
 
     private void showDeleteConfirmation(Post post, int position) {
@@ -503,10 +440,26 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.btnViewMembers.setLayoutParams(params);
             holder.btnViewMembers.setPadding(48, 0, 48, 0);
         } else {
-            // Other's post: show join button with weighted layout
-            holder.btnJoinGroup.setVisibility(View.VISIBLE);
+            // Other's post: check if tag matches viewer's interests
+            boolean tagMatchesViewer = true;
+            if (viewerInterests != null && !viewerInterests.isEmpty()) {
+                String postTag = post.getInterestTag();
+                tagMatchesViewer = postTag != null
+                        && viewerInterests.contains(postTag.trim().toLowerCase());
+            }
 
-            // Restore weight-based layout for both buttons
+            if (!tagMatchesViewer) {
+                // Tag không trùng → chỉ hiện nút thành viên, không hiện tham gia
+                holder.btnJoinGroup.setVisibility(View.GONE);
+                android.widget.LinearLayout.LayoutParams params = new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (int) (48 * holder.itemView.getResources().getDisplayMetrics().density));
+                params.weight = 0;
+                holder.btnViewMembers.setLayoutParams(params);
+                holder.btnViewMembers.setPadding(48, 0, 48, 0);
+            } else {
+                // Tag trùng → hiện nút tham gia
+                holder.btnJoinGroup.setVisibility(View.VISIBLE);
             android.widget.LinearLayout.LayoutParams params = new android.widget.LinearLayout.LayoutParams(
                     0,
                     (int) (48 * holder.itemView.getResources().getDisplayMetrics().density));
@@ -516,13 +469,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.btnViewMembers.setPadding(0, 0, 0, 0);
 
             if (post.isJoined()) {
-                // Already joined: show "Mở đoạn chat" to open conversation
+                // Already joined: show "Mở đoạn chat" to open group conversation
                 holder.btnJoinGroup.setText("💬 Mở đoạn chat");
                 holder.btnJoinGroup.setEnabled(true);
                 holder.btnJoinGroup.setAlpha(1.0f);
                 holder.btnJoinGroup.setOnClickListener(v -> {
+                    // Mở nhóm chat hoạt động (group chat) thay vì chat riêng với người tổ chức
+                    String postId = post.getId() != null ? post.getId() : "";
+                    // Tiêu đề chat: Tag + tên người tổ chức
+                    String postTag = post.getInterestTag() != null ? post.getInterestTag() : "Hoạt động";
+                    String chatTitle = postTag + " - " + post.getUsername();
+                    com.example.weconnect.models.ChatRoom groupRoom =
+                            com.example.weconnect.data.FakeChatRepository.getInstance()
+                                    .getOrCreateActivityGroupChat(postId, chatTitle, post.getUsername());
                     Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
-                    intent.putExtra("chat_name", post.getUsername());
+                    intent.putExtra("room_id", groupRoom.getId());
                     context.startActivity(intent);
                 });
             } else if (post.isPendingApproval()) {
@@ -576,6 +537,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     }
                 });
             }
+            } // close tagMatchesViewer else
         }
     }
 
@@ -590,9 +552,14 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         context.startActivity(intent);
     }
 
-    private void openUserProfile(String username) {
+    private void openUserProfile(String username, long authorId) {
+        String currentUser = com.example.weconnect.api.RetrofitClient.getUserName(context);
         Intent intent = new Intent(context, UserProfileActivity.class);
         intent.putExtra("username", username);
+        if (currentUser != null && !username.equalsIgnoreCase(currentUser)) {
+            intent.putExtra("view_other", true);
+            intent.putExtra("user_id", authorId);
+        }
         context.startActivity(intent);
     }
 

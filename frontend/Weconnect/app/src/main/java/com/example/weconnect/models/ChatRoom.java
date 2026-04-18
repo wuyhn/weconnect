@@ -20,6 +20,7 @@ public class ChatRoom implements Serializable {
     private String ownerUsername;
     private final List<String> members;
     private final List<String> pendingMembers;
+    private long lastActivityTime;
 
     public ChatRoom(String id, String title, String type, int avatarResId, List<ChatMessage> messages) {
         this(id, title, type, avatarResId, true, "", messages, null, new ArrayList<>(), new ArrayList<>());
@@ -43,6 +44,7 @@ public class ChatRoom implements Serializable {
         this.ownerUsername = ownerUsername;
         this.members = members != null ? new ArrayList<>(members) : new ArrayList<>();
         this.pendingMembers = pendingMembers != null ? new ArrayList<>(pendingMembers) : new ArrayList<>();
+        this.lastActivityTime = System.currentTimeMillis();
     }
 
     public String getId() {
@@ -155,5 +157,10 @@ public class ChatRoom implements Serializable {
 
     public void addMessage(ChatMessage message) {
         messages.add(message);
+        this.lastActivityTime = System.currentTimeMillis();
+    }
+
+    public long getLastActivityTime() {
+        return lastActivityTime;
     }
 }

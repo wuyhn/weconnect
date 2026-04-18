@@ -25,6 +25,10 @@ public class FakeChatRepository {
         return instance;
     }
 
+    public static synchronized void resetInstance() {
+        instance = null;
+    }
+
     public List<ChatRoom> getChatRooms() {
         return new ArrayList<>(chatRooms);
     }
@@ -72,6 +76,10 @@ public class FakeChatRepository {
                 results.add(room);
             }
         }
+
+        // Sắp xếp theo tin nhắn mới nhất lên đầu
+        results.sort((a, b) -> Long.compare(b.getLastActivityTime(), a.getLastActivityTime()));
+
         return results;
     }
 
@@ -229,60 +237,6 @@ public class FakeChatRepository {
     }
 
     private void seedRooms() {
-        String currentUser = "Quỳnh Nguyễn";
-
-        List<ChatMessage> coffeeMessages = new ArrayList<>();
-        coffeeMessages.add(new ChatMessage("m1", "Minh Hoàng", "I can join around 7pm.", "09:20", false));
-        coffeeMessages.add(new ChatMessage("m2", currentUser, "Great, I booked a table for 4.", "09:23", true));
-
-        List<ChatMessage> codeMessages = new ArrayList<>();
-        codeMessages.add(new ChatMessage("m3", "Lan Anh", "Let's split the UI tasks first.", "Yesterday", false));
-        codeMessages.add(new ChatMessage("m4", currentUser, "I will handle the feed and profile flow.", "Yesterday", true));
-
-        List<ChatMessage> directMessages = new ArrayList<>();
-        directMessages.add(new ChatMessage("m5", "Minh Hoàng", "Do you want to review the mockup tonight?", "10:12", false));
-        directMessages.add(new ChatMessage("m6", currentUser, "Yes, send it over and I will check it.", "10:15", true));
-
-        // Activity group chat (post-based) - owner is the post creator
-        chatRooms.add(new ChatRoom(
-                "room_group_coffee",
-                "Coffee Meetup",
-                ChatRoom.TYPE_GROUP,
-                R.drawable.ic_user_placeholder,
-                true,
-                "",
-                coffeeMessages,
-                currentUser,
-                new ArrayList<>(Arrays.asList(currentUser, "Minh Hoàng")),
-                new ArrayList<>(Arrays.asList("Lan Anh"))
-        ));
-
-        // Activity group chat - owner is someone else
-        chatRooms.add(new ChatRoom(
-                "room_group_code",
-                "Design and Code Crew",
-                ChatRoom.TYPE_GROUP,
-                R.drawable.ic_user_placeholder,
-                false,
-                "Hoạt động 20 phút trước",
-                codeMessages,
-                "Lan Anh",
-                new ArrayList<>(Arrays.asList("Lan Anh", currentUser)),
-                new ArrayList<>()
-        ));
-
-        // Direct chat (friend DM)
-        chatRooms.add(new ChatRoom(
-                "room_direct_minh",
-                "Minh Hoàng",
-                ChatRoom.TYPE_DIRECT,
-                R.drawable.ic_user_placeholder,
-                true,
-                "",
-                directMessages,
-                currentUser,
-                new ArrayList<>(Arrays.asList(currentUser, "Minh Hoàng")),
-                new ArrayList<>()
-        ));
+        // Không seed fake data - chỉ dùng dữ liệu thật từ backend
     }
 }

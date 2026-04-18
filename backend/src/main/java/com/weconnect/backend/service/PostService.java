@@ -22,15 +22,18 @@ public class PostService {
     private final PostMemberRepository postMemberRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ChatService chatService;
 
     public PostService(PostRepository postRepository,
                        PostMemberRepository postMemberRepository,
                        UserRepository userRepository,
-                       NotificationService notificationService) {
+                       NotificationService notificationService,
+                       ChatService chatService) {
         this.postRepository = postRepository;
         this.postMemberRepository = postMemberRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.chatService = chatService;
     }
 
     // Lấy danh sách bài đăng active
@@ -61,6 +64,16 @@ public class PostService {
                 .build();
 
         post = postRepository.save(post);
+
+        // Tự động tạo phòng chat cho hoạt động
+        String chatTitle = (request.getInterestTag() != null && !request.getInterestTag().isEmpty())
+                ? request.getInterestTag() : "Hoạt động";
+        User author = userRepository.findById(authorId).orElse(null);
+        if (author != null) {
+            chatTitle = chatTitle + " - " + author.getFullName();
+        }
+        chatService.createActivityChatRoom(post.getId(), authorId, chatTitle);
+
         return toResponse(post, authorId);
     }
 
@@ -176,7 +189,10 @@ public class PostService {
                 ownerId
         );
 
-        return "Đã duyệt thành viên!";
+        // Thêm user vào phòng chat hoạt động
+    chatService.addMemberToActivityRoom(postId, memberId);
+
+    return "Đã duyệt thành viên!";
     }
 
     // Từ chối thành viên
@@ -267,6 +283,7 @@ public class PostService {
     // --- Helper methods ---
     private PostResponse toResponse(Post post, Long currentUserId) {
         int memberCount = postMemberRepository.countByPostIdAndStatus(post.getId(), PostMember.Status.APPROVED);
+        memberCount += 1; // +1 tính cả người tổ chức (author)
         boolean joined = false;
         boolean pending = false;
 

@@ -55,6 +55,10 @@ public class FakeSocialRepository {
         return instance;
     }
 
+    public static synchronized void resetInstance() {
+        instance = null;
+    }
+
     public String getCurrentUsername() {
         return currentUsername;
     }
@@ -167,9 +171,6 @@ public class FakeSocialRepository {
 
     private void seed() {
         stateMap.put(currentUsername, new SocialState(true, FriendStatus.NONE));
-        stateMap.put("Minh Hoàng", new SocialState(false, FriendStatus.FRIEND));
-        stateMap.put("Lan Anh", new SocialState(false, FriendStatus.NONE));
-        stateMap.put("Hải Đăng", new SocialState(false, FriendStatus.BLOCKED));
-        stateMap.put("Thu Hương", new SocialState(false, FriendStatus.PENDING_RECEIVED));
+        // Không seed fake data - chỉ dùng dữ liệu thật từ backend
     }
 }

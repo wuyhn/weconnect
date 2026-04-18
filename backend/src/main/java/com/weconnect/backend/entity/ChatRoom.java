@@ -19,10 +19,14 @@ public class ChatRoom {
     public static final String TYPE_GROUP = "group";
     public static final String TYPE_DIRECT = "direct";
     public static final String TYPE_FRIEND_GROUP = "friend_group";
+    public static final String TYPE_ACTIVITY = "activity";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "post_id")
+    private Long postId; // Liên kết với bài post (chỉ dùng cho TYPE_ACTIVITY)
 
     @Column(length = 200)
     private String title;
