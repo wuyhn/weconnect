@@ -400,6 +400,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(context, UserProfileActivity.class);
                 intent.putExtra("username", item.getRelatedUsername());
+                intent.putExtra("view_other", true);
                 context.startActivity(intent);
             });
         }

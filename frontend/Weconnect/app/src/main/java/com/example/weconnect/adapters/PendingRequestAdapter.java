@@ -88,12 +88,17 @@ public class PendingRequestAdapter extends RecyclerView.Adapter<PendingRequestAd
         // Click avatar/name to view profile
         holder.ivAvatar.setOnClickListener(v -> {
             Intent intent = new Intent(context, UserProfileActivity.class);
+            intent.putExtra("username", userName);
             intent.putExtra("user_id", userId);
+            intent.putExtra("view_other", true);
             context.startActivity(intent);
         });
+        final String fUserName = userName;
         holder.tvName.setOnClickListener(v -> {
             Intent intent = new Intent(context, UserProfileActivity.class);
+            intent.putExtra("username", fUserName);
             intent.putExtra("user_id", userId);
+            intent.putExtra("view_other", true);
             context.startActivity(intent);
         });
     }

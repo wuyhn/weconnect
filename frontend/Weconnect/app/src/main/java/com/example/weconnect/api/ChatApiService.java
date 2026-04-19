@@ -39,4 +39,8 @@ public interface ChatApiService {
     @POST("api/chat/rooms/{id}/messages")
     Call<ApiResponse<Map<String, Object>>> sendMessage(
             @Path("id") long id, @Body Map<String, String> body);
+
+    // Lấy phòng chat theo postId
+    @GET("api/chat/rooms/post/{postId}")
+    Call<ApiResponse<Map<String, Object>>> getRoomByPostId(@Path("postId") long postId);
 }

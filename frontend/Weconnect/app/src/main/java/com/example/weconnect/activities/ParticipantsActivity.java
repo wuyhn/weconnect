@@ -76,21 +76,25 @@ public class ParticipantsActivity extends AppCompatActivity {
                         && response.body().getResult() != null) {
                     List<Map<String, Object>> membersData = response.body().getResult();
                     List<ParticipantAdapter.Participant> participants = new ArrayList<>();
+                    android.util.Log.d("Participants", "Members count from API: " + membersData.size());
 
                     // Always show post author first as organizer
                     boolean authorAdded = false;
                     for (Map<String, Object> member : membersData) {
+                        android.util.Log.d("Participants", "Member raw data keys: " + member.keySet() + " values: " + member);
                         String name = member.get("fullName") != null
                                 ? member.get("fullName").toString()
                                 : (member.get("username") != null ? member.get("username").toString() : "Người dùng");
                         String status = member.get("status") != null
                                 ? member.get("status").toString() : "";
 
-                        // Extract userId from API response
+                        // Extract userId from API response (try both "userId" and "id" keys)
                         long memberId = -1;
                         try {
-                            if (member.get("userId") != null) {
-                                memberId = ((Number) member.get("userId")).longValue();
+                            Object rawId = member.get("userId");
+                            if (rawId == null) rawId = member.get("id");
+                            if (rawId != null) {
+                                memberId = ((Number) rawId).longValue();
                             }
                         } catch (Exception ignored) {}
 

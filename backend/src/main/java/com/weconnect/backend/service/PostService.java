@@ -283,6 +283,22 @@ public class PostService {
         return toResponseList(archived, currentUserId);
     }
 
+    // Hoạt động của tôi: bài user đã được duyệt tham gia (kể cả hết hạn)
+    public List<PostResponse> getMyActivities(Long userId) {
+        List<PostMember> memberships = postMemberRepository.findByUserIdAndStatus(userId, PostMember.Status.APPROVED);
+        List<PostResponse> results = new ArrayList<>();
+        for (PostMember pm : memberships) {
+            try {
+                Post post = postRepository.findById(pm.getPostId()).orElse(null);
+                if (post == null) continue;
+                // Bỏ qua bài của chính user (author) - chỉ lấy bài tham gia
+                if (post.getAuthorId().equals(userId)) continue;
+                results.add(toResponse(post, userId));
+            } catch (Exception ignored) {}
+        }
+        return results;
+    }
+
     // Tìm kiếm bài đăng
     public List<PostResponse> searchPosts(String query, Long currentUserId) {
         List<Post> posts = postRepository.findByContentContainingIgnoreCaseOrInterestTagContainingIgnoreCase(query, query);
@@ -297,11 +313,16 @@ public class PostService {
         boolean joined = false;
         boolean pending = false;
 
-        if (currentUserId != null && !post.getAuthorId().equals(currentUserId)) {
-            PostMember pm = postMemberRepository.findByPostIdAndUserId(post.getId(), currentUserId).orElse(null);
-            if (pm != null) {
-                joined = pm.getStatus() == PostMember.Status.APPROVED;
-                pending = pm.getStatus() == PostMember.Status.PENDING;
+        if (currentUserId != null) {
+            if (post.getAuthorId().equals(currentUserId)) {
+                // Author luôn là thành viên của bài viết
+                joined = true;
+            } else {
+                PostMember pm = postMemberRepository.findByPostIdAndUserId(post.getId(), currentUserId).orElse(null);
+                if (pm != null) {
+                    joined = pm.getStatus() == PostMember.Status.APPROVED;
+                    pending = pm.getStatus() == PostMember.Status.PENDING;
+                }
             }
         }
 

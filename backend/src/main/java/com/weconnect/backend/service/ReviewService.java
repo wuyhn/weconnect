@@ -33,24 +33,12 @@ public class ReviewService {
         this.postRepository = postRepository;
     }
 
-    // Lấy danh sách review
+    // Lấy danh sách review của 1 user
     public List<Map<String, Object>> getReviews(Long userId) {
         List<UserReview> reviews = reviewRepository.findByReviewedUserIdOrderByCreatedAtDesc(userId);
         List<Map<String, Object>> result = new ArrayList<>();
-
         for (UserReview r : reviews) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", r.getId());
-            map.put("reviewerId", r.getReviewerId());
-
-            User reviewer = userRepository.findById(r.getReviewerId()).orElse(null);
-            map.put("reviewerName", reviewer != null ? reviewer.getFullName() : "Unknown");
-
-            map.put("activityName", r.getActivityName());
-            map.put("reputationLabel", r.getReputationLabel());
-            map.put("comment", r.getComment());
-            map.put("createdAt", r.getCreatedAt());
-            result.add(map);
+            result.add(buildReviewMap(r));
         }
         return result;
     }
@@ -77,6 +65,47 @@ public class ReviewService {
 
         reviewRepository.save(review);
         return "Đánh giá thành công!";
+    }
+
+    // Lấy tất cả reviews (cho admin)
+    public List<Map<String, Object>> getAllReviews() {
+        List<UserReview> reviews = reviewRepository.findAll();
+        // Sắp xếp mới nhất trước
+        reviews.sort((a, b) -> {
+            if (b.getCreatedAt() == null || a.getCreatedAt() == null) return 0;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (UserReview r : reviews) {
+            result.add(buildReviewMap(r));
+        }
+        return result;
+    }
+
+    // Lấy 1 review theo ID (cho admin)
+    public Map<String, Object> getReviewById(Long id) {
+        UserReview review = reviewRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Review không tồn tại."));
+        return buildReviewMap(review);
+    }
+
+    private Map<String, Object> buildReviewMap(UserReview r) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", r.getId());
+        map.put("reviewerId", r.getReviewerId());
+        map.put("reviewedUserId", r.getReviewedUserId());
+
+        User reviewer = userRepository.findById(r.getReviewerId()).orElse(null);
+        map.put("reviewerName", reviewer != null ? reviewer.getFullName() : "Unknown");
+
+        User reviewed = userRepository.findById(r.getReviewedUserId()).orElse(null);
+        map.put("reviewedUserName", reviewed != null ? reviewed.getFullName() : "Unknown");
+
+        map.put("activityName", r.getActivityName());
+        map.put("reputationLabel", r.getReputationLabel());
+        map.put("comment", r.getComment());
+        map.put("createdAt", r.getCreatedAt());
+        return map;
     }
 
     /**

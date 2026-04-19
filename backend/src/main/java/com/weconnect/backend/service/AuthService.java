@@ -53,13 +53,14 @@ public class AuthService {
             throw new RuntimeException("Mật khẩu sai, vui lòng kiểm tra lại.");
         }
 
-        String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail());
+        String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole());
 
         return AuthResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .token(token)
+                .role(user.getRole())
                 .message("Đăng nhập thành công!")
                 .build();
     }

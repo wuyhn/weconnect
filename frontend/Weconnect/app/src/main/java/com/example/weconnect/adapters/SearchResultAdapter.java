@@ -75,6 +75,13 @@ public class SearchResultAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(context, UserProfileActivity.class);
                 intent.putExtra("username", item.getTitle());
+                boolean isOwnProfile = currentUsername.equalsIgnoreCase(item.getTitle());
+                if (!isOwnProfile) {
+                    intent.putExtra("view_other", true);
+                    if (item.getUserId() > 0) {
+                        intent.putExtra("user_id", item.getUserId());
+                    }
+                }
                 context.startActivity(intent);
             });
         } else if (holder instanceof PostViewHolder) {

@@ -374,10 +374,42 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 return;
             }
             sheet.dismiss();
-            // Show styled success snackbar
-            android.widget.Toast successToast = Toast.makeText(context,
-                    "✅ Đã gửi báo cáo vi phạm. Cảm ơn bạn!", Toast.LENGTH_LONG);
-            successToast.show();
+
+            // Gửi report lên backend
+            String selectedReason = reasons[checkedId];
+            String description = etCustomReason.getText().toString().trim();
+            long postId = 0;
+            try {
+                postId = Long.parseLong(post.getId());
+            } catch (Exception ignored) {}
+
+            if (postId > 0) {
+                com.example.weconnect.api.RetrofitClient.loadToken(context);
+                com.example.weconnect.api.ReportApiService reportApi =
+                        com.example.weconnect.api.RetrofitClient.getClient()
+                                .create(com.example.weconnect.api.ReportApiService.class);
+
+                java.util.Map<String, Object> body = new java.util.HashMap<>();
+                body.put("targetType", "POST");
+                body.put("targetId", postId);
+                body.put("reason", selectedReason);
+                body.put("description", description);
+
+                reportApi.createReport(body).enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<Void>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<Void>> call,
+                                           retrofit2.Response<com.example.weconnect.models.ApiResponse<Void>> response) {
+                        Toast.makeText(context, "✅ Đã gửi báo cáo vi phạm. Cảm ơn bạn!", Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<Void>> call, Throwable t) {
+                        Toast.makeText(context, "Lỗi kết nối. Thử lại sau!", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else {
+                Toast.makeText(context, "✅ Đã gửi báo cáo vi phạm. Cảm ơn bạn!", Toast.LENGTH_LONG).show();
+            }
             hidePost(position);
         });
         root.addView(btnSend);
@@ -474,17 +506,49 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 holder.btnJoinGroup.setEnabled(true);
                 holder.btnJoinGroup.setAlpha(1.0f);
                 holder.btnJoinGroup.setOnClickListener(v -> {
-                    // Mở nhóm chat hoạt động (group chat) thay vì chat riêng với người tổ chức
                     String postId = post.getId() != null ? post.getId() : "";
-                    // Tiêu đề chat: Tag + tên người tổ chức
-                    String postTag = post.getInterestTag() != null ? post.getInterestTag() : "Hoạt động";
-                    String chatTitle = postTag + " - " + post.getUsername();
-                    com.example.weconnect.models.ChatRoom groupRoom =
-                            com.example.weconnect.data.FakeChatRepository.getInstance()
-                                    .getOrCreateActivityGroupChat(postId, chatTitle, post.getUsername());
-                    Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
-                    intent.putExtra("room_id", groupRoom.getId());
-                    context.startActivity(intent);
+                    if (postId.isEmpty()) {
+                        android.widget.Toast.makeText(context, "Lỗi: không có ID bài viết", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    long postIdLong;
+                    try {
+                        postIdLong = Long.parseLong(postId);
+                    } catch (NumberFormatException e) {
+                        android.widget.Toast.makeText(context, "Lỗi ID bài viết", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    com.example.weconnect.api.RetrofitClient.loadToken(context);
+                    com.example.weconnect.api.ChatApiService chatApi =
+                            com.example.weconnect.api.RetrofitClient.getClient()
+                                    .create(com.example.weconnect.api.ChatApiService.class);
+
+                    chatApi.getRoomByPostId(postIdLong).enqueue(new retrofit2.Callback<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> call,
+                                               retrofit2.Response<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> response) {
+                            if (response.isSuccessful() && response.body() != null
+                                    && response.body().getResult() != null) {
+                                java.util.Map<String, Object> room = response.body().getResult();
+                                long roomId = room.get("id") != null ? ((Number) room.get("id")).longValue() : -1;
+                                if (roomId > 0) {
+                                    Intent intent = new Intent(context, com.example.weconnect.activities.ConversationActivity.class);
+                                    intent.putExtra("room_id", roomId);
+                                    context.startActivity(intent);
+                                } else {
+                                    android.widget.Toast.makeText(context, "Lỗi phòng chat", android.widget.Toast.LENGTH_SHORT).show();
+                                }
+                            } else {
+                                android.widget.Toast.makeText(context, "Không tìm thấy phòng chat cho bài viết này", android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(retrofit2.Call<com.example.weconnect.models.ApiResponse<java.util.Map<String, Object>>> call, Throwable t) {
+                            android.widget.Toast.makeText(context, "Lỗi kết nối", android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 });
             } else if (post.isPendingApproval()) {
                 // Pending approval: show dimmed "Đang chờ duyệt"

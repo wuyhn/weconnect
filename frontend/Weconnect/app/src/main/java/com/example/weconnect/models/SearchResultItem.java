@@ -10,6 +10,7 @@ public class SearchResultItem {
     private String title;
     private String subtitle;
     private int avatarResId;
+    private long userId; // Backend user ID
 
     private String username;
     private String content;
@@ -84,5 +85,13 @@ public class SearchResultItem {
 
     public Post getPost() {
         return post;
+    }
+
+    public long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(long userId) {
+        this.userId = userId;
     }
 }

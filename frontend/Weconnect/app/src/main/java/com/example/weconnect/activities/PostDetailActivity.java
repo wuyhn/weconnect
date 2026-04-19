@@ -80,6 +80,15 @@ public class PostDetailActivity extends AppCompatActivity {
         tvPostDetailUsername.setOnClickListener(v -> {
             Intent intent = new Intent(PostDetailActivity.this, UserProfileActivity.class);
             intent.putExtra("username", username);
+            if (post != null) {
+                String currentUser = RetrofitClient.getUserName(this);
+                if (currentUser == null || !username.equalsIgnoreCase(currentUser)) {
+                    intent.putExtra("view_other", true);
+                    if (post.getAuthorId() > 0) {
+                        intent.putExtra("user_id", post.getAuthorId());
+                    }
+                }
+            }
             startActivity(intent);
         });
 

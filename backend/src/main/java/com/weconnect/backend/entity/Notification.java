@@ -23,6 +23,8 @@ public class Notification {
         JOIN_REQUEST,
         JOIN_APPROVED,
         JOIN_REJECTED,
+        ADMIN_WARNING,
+        ADMIN_ACTION,
         GENERAL
     }
 

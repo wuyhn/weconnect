@@ -93,8 +93,7 @@ public class MainActivity extends AppCompatActivity {
     private void syncInterestsFromBackend() {
         android.content.SharedPreferences prefs =
                 getSharedPreferences("weconnect_prefs", MODE_PRIVATE);
-        String saved = prefs.getString("user_interests", "");
-        if (saved != null && !saved.isEmpty()) return; // Đã có sẵn
+        // Luôn sync lại từ backend (khi user cập nhật tag, feed cần làm mới)
 
         RetrofitClient.loadToken(this);
         com.example.weconnect.api.UserApiService userApi =
@@ -380,6 +379,7 @@ public class MainActivity extends AppCompatActivity {
             if (post.isExpired() || post.isArchived()) continue;
 
             // Bắt buộc lọc theo tag: bài viết phải có tag trùng sở thích của user
+            // TRỪ KHI user đã tham gia hoặc đang chờ duyệt
             if (post.getInterestTag() != null && !post.getInterestTag().trim().isEmpty()) {
                 boolean matchTag = false;
                 for (String interest : userInterests) {
@@ -388,8 +388,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                 }
+                // Giữ lại bài user đã joined hoặc pending (không bị ảnh hưởng bởi đổi tag)
+                boolean userParticipating = post.isJoined() || post.isPendingApproval();
                 // Luôn cho phép bài của chính mình hiện
-                if (!matchTag && (currentUser == null || !post.getUsername().equalsIgnoreCase(currentUser))) {
+                if (!matchTag && !userParticipating
+                        && (currentUser == null || !post.getUsername().equalsIgnoreCase(currentUser))) {
                     continue;
                 }
             }

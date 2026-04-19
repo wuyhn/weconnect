@@ -117,4 +117,17 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.builder()
                 .code(1000).message("Đã xóa " + deleted + " phòng chat không hợp lệ.").build());
     }
+
+    // Lấy phòng chat hoạt động theo postId
+    @GetMapping("/rooms/post/{postId}")
+    public ResponseEntity<?> getRoomByPost(@PathVariable Long postId) {
+        try {
+            ChatRoomResponse room = chatService.getRoomByPostId(postId);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000).message("Thành công").result(room).build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(ApiResponse.builder()
+                    .code(1020).message(e.getMessage()).build());
+        }
+    }
 }

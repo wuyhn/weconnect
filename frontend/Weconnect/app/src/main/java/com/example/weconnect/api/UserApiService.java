@@ -38,4 +38,12 @@ public interface UserApiService {
     // Xóa tài khoản
     @DELETE("api/users/me")
     Call<ApiResponse<Void>> deleteAccount();
+
+    // Tìm user theo tên
+    @GET("api/users/search")
+    Call<ApiResponse<Map<String, Object>>> searchByName(@Query("name") String name);
+
+    // Tìm kiếm user partial match
+    @GET("api/users/search/partial")
+    Call<ApiResponse<List<Map<String, Object>>>> searchUsersPartial(@Query("q") String query);
 }

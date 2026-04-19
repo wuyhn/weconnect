@@ -344,24 +344,14 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardInterests"
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chipGroupUserInterests"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardBackgroundColor="@color/card_surface"
-                    app:cardCornerRadius="18dp"
-                    app:cardElevation="3dp"
-                    app:strokeWidth="0dp">
-
-                    <com.google.android.material.chip.ChipGroup
-                        android:id="@+id/chipGroupUserInterests"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:padding="14dp"
-                        app:chipSpacingHorizontal="8dp"
-                        app:chipSpacingVertical="8dp"
-                        app:singleLine="false" />
-                </com.google.android.material.card.MaterialCardView>
+                    android:paddingVertical="4dp"
+                    app:chipSpacingHorizontal="8dp"
+                    app:chipSpacingVertical="8dp"
+                    app:singleLine="false" />
 
                 <!-- Create Post Section (self profile only) -->
                 <com.google.android.material.card.MaterialCardView
@@ -410,35 +400,143 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Active Posts Section -->
-                <TextView
-                    android:id="@+id/tvActivePostsTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="10dp"
-                    android:text="Bài viết đang hoạt động"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                <!-- Tab chuyển đổi: Bài viết / Hoạt động -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tabLayoutProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@android:color/transparent"
+                    app:tabGravity="fill"
+                    app:tabMode="fixed"
+                    app:tabIndicator="@drawable/bg_tab_indicator_underline"
+                    app:tabIndicatorGravity="bottom"
+                    app:tabIndicatorFullWidth="false"
+                    app:tabSelectedTextColor="@color/primary_pink"
+                    app:tabTextColor="@color/text_secondary"
+                    app:tabRippleColor="@android:color/transparent"
+                    app:tabTextAppearance="@style/TabTextStyle">
 
-                <TextView
-                    android:id="@+id/tvNoActivePosts"
+                    <com.google.android.material.tabs.TabItem
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Bài viết" />
+
+                    <com.google.android.material.tabs.TabItem
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Hoạt động" />
+                </com.google.android.material.tabs.TabLayout>
+
+                <!-- Divider line dưới tab -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:background="#E0E0E0" />
+
+                <!-- Container: Bài viết của tôi -->
+                <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:gravity="center"
-                    android:padding="20dp"
-                    android:text="Chưa có bài viết nào"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:visibility="gone" />
+                    android:layout_marginTop="8dp">
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvActivePostsProfile"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false" />
+                    <!-- Container: Bài viết của tôi -->
+                    <LinearLayout
+                        android:id="@+id/containerMyPosts"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/tvNoActivePosts"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="32dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:background="@drawable/bg_empty_state_icon"
+                                android:gravity="center"
+                                android:text="📝"
+                                android:textSize="28sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Chưa có bài viết nào"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Hãy tạo bài viết đầu tiên của bạn!"
+                                android:textColor="#BDBDBD"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvActivePostsProfile"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false" />
+                    </LinearLayout>
+
+                    <!-- Container: Hoạt động của tôi -->
+                    <LinearLayout
+                        android:id="@+id/containerMyActivities"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/tvNoMyActivities"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="32dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="64dp"
+                                android:background="@drawable/bg_empty_state_icon"
+                                android:gravity="center"
+                                android:text="🎯"
+                                android:textSize="28sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Bạn chưa tham gia hoạt động nào"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Khám phá và tham gia hoạt động mới!"
+                                android:textColor="#BDBDBD"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvMyActivities"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false" />
+                    </LinearLayout>
+                </FrameLayout>
 
                 <!-- Related Posts Section (matching interest tags from other users) -->
                 <TextView

@@ -173,4 +173,13 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.builder()
                 .code(1000).message("Thành công").result(posts).build());
     }
+
+    // Hoạt động của tôi (bài user đã được duyệt tham gia)
+    @GetMapping("/my-activities")
+    public ResponseEntity<?> getMyActivities(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        List<PostResponse> posts = postService.getMyActivities(user.getId());
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Thành công").result(posts).build());
+    }
 }

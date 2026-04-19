@@ -158,4 +158,33 @@ public class UserController {
                     .build());
         }
     }
+
+    // Tìm user theo tên exact (dùng để resolve user_id từ username)
+    @GetMapping("/search")
+    public ResponseEntity<?> searchByName(@RequestParam String name) {
+        var user = userRepository.findByFullName(name).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(404).body(ApiResponse.builder()
+                    .code(1003).message("Không tìm thấy người dùng").build());
+        }
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Thành công")
+                .result(Map.of("id", user.getId(), "fullName", user.getFullName()))
+                .build());
+    }
+
+    // Tìm kiếm user theo tên (partial match)
+    @GetMapping("/search/partial")
+    public ResponseEntity<?> searchUsersPartial(@RequestParam String q,
+                                                  Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        List<User> users = userRepository.findByFullNameContainingIgnoreCase(q);
+        List<Map<String, Object>> result = users.stream()
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .limit(10)
+                .map(u -> Map.<String, Object>of("id", u.getId(), "fullName", u.getFullName()))
+                .toList();
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Thành công").result(result).build());
+    }
 }

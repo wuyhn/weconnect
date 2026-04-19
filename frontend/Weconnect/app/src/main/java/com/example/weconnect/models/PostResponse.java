@@ -63,10 +63,13 @@ public class PostResponse {
             // fallback to defaults
         }
 
+        // compute relative time string from createdAt
+        String relativeTime = computeRelativeTime(createdAt);
+
         Post post = new Post(
                 String.valueOf(id),
                 authorName != null ? authorName : "",
-                createdAt != null ? createdAt : "",
+                relativeTime,
                 content != null ? content : "",
                 interestTag != null ? interestTag : "",
                 location != null ? location : "",
@@ -89,5 +92,28 @@ public class PostResponse {
             post.setAuthorId(authorId);
         }
         return post;
+    }
+
+    private String computeRelativeTime(String isoTime) {
+        if (isoTime == null || isoTime.isEmpty()) return "";
+        try {
+            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault());
+            long createdMillis = isoFormat.parse(isoTime).getTime();
+            long diffMs = System.currentTimeMillis() - createdMillis;
+            long diffSec = diffMs / 1000;
+            if (diffSec < 60) return "Vừa xong";
+            long diffMin = diffSec / 60;
+            if (diffMin < 60) return diffMin + " phút trước";
+            long diffHour = diffMin / 60;
+            if (diffHour < 24) return diffHour + " giờ trước";
+            long diffDay = diffHour / 24;
+            if (diffDay < 30) return diffDay + " ngày trước";
+            long diffMonth = diffDay / 30;
+            if (diffMonth < 12) return diffMonth + " tháng trước";
+            return (diffDay / 365) + " năm trước";
+        } catch (Exception e) {
+            return isoTime;
+        }
     }
 }

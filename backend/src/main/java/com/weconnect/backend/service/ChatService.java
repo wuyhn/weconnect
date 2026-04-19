@@ -89,6 +89,13 @@ public class ChatService {
         return toRoomResponse(room);
     }
 
+    // Tìm phòng chat theo postId
+    public ChatRoomResponse getRoomByPostId(Long postId) {
+        ChatRoom room = chatRoomRepository.findByPostId(postId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng chat cho bài viết này."));
+        return toRoomResponse(room);
+    }
+
     // Tạo phòng nhóm bạn bè
     public ChatRoomResponse createGroupRoom(Long ownerId, String title, List<Long> memberIds) {
         ChatRoom room = ChatRoom.builder()

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/reviews")
+@RequestMapping("/api")
 public class ReviewController {
 
     private final ReviewService reviewService;
@@ -20,7 +20,7 @@ public class ReviewController {
     }
 
     // Lấy danh sách review của user
-    @GetMapping("/user/{userId}")
+    @GetMapping("/reviews/user/{userId}")
     public ResponseEntity<?> getReviews(@PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.builder()
                 .code(1000).message("Thành công")
@@ -28,7 +28,7 @@ public class ReviewController {
     }
 
     // Viết review
-    @PostMapping
+    @PostMapping("/reviews")
     public ResponseEntity<?> createReview(Authentication authentication,
                                           @RequestBody Map<String, Object> body) {
         User user = (User) authentication.getPrincipal();
@@ -45,6 +45,29 @@ public class ReviewController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.builder()
                     .code(1030).message(e.getMessage()).build());
+        }
+    }
+
+    // === Admin endpoints ===
+
+    // Lấy tất cả reviews (cho admin web)
+    @GetMapping("/admin/reviews")
+    public ResponseEntity<?> getAllReviews() {
+        return ResponseEntity.ok(ApiResponse.builder()
+                .code(1000).message("Thành công")
+                .result(reviewService.getAllReviews()).build());
+    }
+
+    // Lấy chi tiết 1 review (cho admin web)
+    @GetMapping("/admin/reviews/{id}")
+    public ResponseEntity<?> getReviewById(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .code(1000).message("Thành công")
+                    .result(reviewService.getReviewById(id)).build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .code(1031).message(e.getMessage()).build());
         }
     }
 }

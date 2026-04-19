@@ -55,6 +55,10 @@ public interface PostApiService {
     @GET("api/posts/search")
     Call<ApiResponse<List<PostResponse>>> searchPosts(@Query("q") String query);
 
+    // Hoạt động của tôi
+    @GET("api/posts/my-activities")
+    Call<ApiResponse<List<PostResponse>>> getMyActivities();
+
     // Bài đăng của user
     @GET("api/posts/user/{userId}")
     Call<ApiResponse<List<PostResponse>>> getUserPosts(@Path("userId") long userId);

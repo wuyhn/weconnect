@@ -3,6 +3,7 @@ package com.weconnect.backend.service;
 import com.weconnect.backend.entity.Notification;
 import com.weconnect.backend.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,12 +22,14 @@ public class NotificationService {
     }
 
     // Tạo thông báo (basic)
+    @Transactional
     public void createNotification(Long userId, Notification.NotificationType type,
                                    String message, String relatedUsername) {
         createNotification(userId, type, message, relatedUsername, null, null);
     }
 
     // Tạo thông báo (với context post/user)
+    @Transactional
     public void createNotification(Long userId, Notification.NotificationType type,
                                    String message, String relatedUsername,
                                    Long relatedPostId, Long relatedUserId) {

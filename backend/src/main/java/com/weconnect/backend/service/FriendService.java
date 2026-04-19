@@ -38,7 +38,9 @@ public class FriendService {
             throw new RuntimeException("Không thể kết bạn với chính mình.");
         }
 
-        if (blockedUserRepository.existsByBlockerIdAndBlockedId(receiverId, senderId)) {
+        // Kiểm tra block 2 chiều
+        if (blockedUserRepository.existsByBlockerIdAndBlockedId(senderId, receiverId)
+                || blockedUserRepository.existsByBlockerIdAndBlockedId(receiverId, senderId)) {
             throw new RuntimeException("Không thể gửi lời mời.");
         }
 
@@ -49,6 +51,10 @@ public class FriendService {
             }
             if (existing.getStatus() == Friendship.Status.PENDING) {
                 throw new RuntimeException("Đã có lời mời kết bạn đang chờ.");
+            }
+            // DECLINED: xóa record cũ để tạo lại
+            if (existing.getStatus() == Friendship.Status.DECLINED) {
+                friendshipRepository.delete(existing);
             }
         }
 

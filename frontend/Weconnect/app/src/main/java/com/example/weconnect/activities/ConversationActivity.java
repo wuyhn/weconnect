@@ -97,13 +97,17 @@ public class ConversationActivity extends AppCompatActivity {
     }
 
     private void bindRoom() {
-        String roomId = getIntent().getStringExtra("room_id");
+        // Thử đọc room_id dạng long (từ backend API) trước
+        long roomIdLong = getIntent().getLongExtra("room_id", -1);
+        String roomIdStr = getIntent().getStringExtra("room_id");
         String chatName = getIntent().getStringExtra("chat_name");
 
-        // Thử parse room_id thành số (backend ID)
-        if (roomId != null) {
+        // Ưu tiên long extra (từ PostAdapter backend call)
+        if (roomIdLong > 0) {
+            backendRoomId = roomIdLong;
+        } else if (roomIdStr != null) {
             try {
-                backendRoomId = Long.parseLong(roomId);
+                backendRoomId = Long.parseLong(roomIdStr);
             } catch (NumberFormatException e) {
                 backendRoomId = -1;
             }
@@ -112,9 +116,9 @@ public class ConversationActivity extends AppCompatActivity {
         if (backendRoomId > 0) {
             // Load room từ backend API
             loadRoomFromApi(backendRoomId);
-        } else if (roomId != null) {
+        } else if (roomIdStr != null) {
             // Fallback: room_id không phải số, thử FakeChatRepository
-            room = FakeChatRepository.getInstance().getRoomById(roomId);
+            room = FakeChatRepository.getInstance().getRoomById(roomIdStr);
             if (room != null) {
                 displayRoom();
             } else {
