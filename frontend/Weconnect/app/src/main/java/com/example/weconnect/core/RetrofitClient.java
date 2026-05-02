@@ -14,9 +14,17 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
 
+
+    // ===== CẤU HÌNH BASE URL =====
+    // 1. Cùng WiFi (local test):     "http://192.168.0.103:8080/"
+    // 2. Emulator Android Studio:    "http://10.0.2.2:8080/"
+    // 3. Ngrok (test xa / đồng nghiệp chạy server): "https://abc123.ngrok-free.app/"
+    // ==============================
+//    private static final String BASE_URL = "https://abc123.ngrok-free.app/";
+
     // Dùng IP thật của máy tính khi chạy trên điện thoại thật (cùng WiFi)
     // Nếu dùng Emulator thì đổi lại thành http://10.0.2.2:8080/
-    private static final String BASE_URL = "http://192.168.1.18:8080/";
+    private static final String BASE_URL = "http://192.168.0.103:8080/";
     private static Retrofit retrofit = null;
     private static String authToken = null;
 
